@@ -4,9 +4,12 @@
 
 import React from "react";
 import { connect } from "react-redux";
+import { Redirect } from "react-router-dom";
 import { NavBar, InputItem, TextareaItem, Button } from "antd-mobile";
 
 import HeaderSelector from "../../components/header-selector/header-selector";
+
+import { updateUser } from "../../redux/actions";
 
 class LaobanInfo extends React.Component {
   state = {
@@ -24,9 +27,17 @@ class LaobanInfo extends React.Component {
     this.setState({ [name]: value });
   };
   save = () => {
-    console.log(this.state);
+    // 传入的就是需要更新的信息，这些信息我们通过受控组件的方式已经保存在了this.state中
+    this.props.updateUser(this.state);
   };
   render() {
+    const { header, type } = this.props.user;
+    if (header) {
+      // 说明信息已经得到了完善，需要重定向到一个特定的路径
+      // 判断类型决定是跳转到老板界面还是大神界面
+      const path = type === "dashen" ? "/dashen" : "/laoban";
+      return <Redirect to={path}></Redirect>;
+    }
     return (
       <div>
         <NavBar>老板信息完善</NavBar>
@@ -71,4 +82,6 @@ class LaobanInfo extends React.Component {
   }
 }
 
-export default connect((state) => ({}), {})(LaobanInfo);
+export default connect((state) => ({ user: state.user }), { updateUser })(
+  LaobanInfo
+);

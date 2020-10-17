@@ -20,7 +20,7 @@ export default class HeaderSelector extends React.Component {
       this.headerList.push({
         text: "头像" + (i + 1),
         // 不能使用import,并且用的不是单引号，模板字符串用的是``
-        icon: require(`./images/头像${i + 1}.png`),
+        icon: require(`../../assets/images/头像${i + 1}.png`),
       });
     }
   }
@@ -30,7 +30,7 @@ export default class HeaderSelector extends React.Component {
     // 更新当前组件状态
     this.setState({ icon });
     // 调用函数更新父组件状态
-    this.props.setHeader(text);
+    this.props.setHeader(text); //text：头像1，....
   };
 
   render() {
@@ -41,7 +41,7 @@ export default class HeaderSelector extends React.Component {
     ) : (
       <div>
         已选择头像：
-        <img src={icon} />
+        <img alt="头像" src={icon} />
       </div>
     );
     return (

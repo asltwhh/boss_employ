@@ -4,13 +4,15 @@
 
 import React from "react";
 import { connect } from "react-redux";
+import { Redirect } from "react-router-dom";
 import { NavBar, InputItem, TextareaItem, Button } from "antd-mobile";
 
 import HeaderSelector from "../../components/header-selector/header-selector";
+import { updateUser } from "../../redux/actions";
 
 class DashenInfo extends React.Component {
   state = {
-    header: "", // string:"请选择头像"或者"已选择头像"
+    header: "", // string:"头像1，头像2..."
     post: "", // 职位
     info: "", // 信息
   };
@@ -22,9 +24,15 @@ class DashenInfo extends React.Component {
     this.setState({ [name]: value });
   };
   save = () => {
-    console.log(this.state);
+    this.props.updateUser(this.state);
   };
   render() {
+    const { header, type } = this.props.user;
+    if (header) {
+      // 判断如果信息已经完善，判断type，自动重定向到响应的界面，虽然目前我们还没有定义老板主界面和大神主界面
+      const path = type === "dashen" ? "/dashen" : "/laoban";
+      return <Redirect to={path}></Redirect>;
+    }
     return (
       <div>
         <NavBar>大神信息完善</NavBar>
@@ -53,4 +61,6 @@ class DashenInfo extends React.Component {
   }
 }
 
-export default connect((state) => ({}), {})(DashenInfo);
+export default connect((state) => ({ user: state.user }), { updateUser })(
+  DashenInfo
+);

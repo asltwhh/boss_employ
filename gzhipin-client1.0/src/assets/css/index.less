@@ -1,5 +1,32 @@
 .error-msg {
-    color: red;
-    text-align: center;
-    font-size: 18px;
+  /* 提示错误信息 */
+  color: red;
+  text-align: center;
+  font-size: 18px;
+}
+
+/* 这是antd-mobile中定义的，是给NavBar特有的类名 */
+.am-tab-bar {
+  /* 使得底部导航栏始终在底部 */
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  height: inherit; //高度设置包裹内容，内容多高，高度就多高
+}
+
+.sticky-header {
+  /* 使得顶部导航栏始终在底部 */
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 10;
+}
+
+// 设置消息文本居右
+#chat-page .chat-me .am-list-extra {
+  flex-basis: auto;
+}
+#chat-page .chat-me .am-list-content {
+  padding-right: 15px;
+  text-align: right;
 }
