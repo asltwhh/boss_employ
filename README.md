@@ -70,10 +70,18 @@
 - [12 实现实时聊天](#12-实现实时聊天)
   - [12.1 聊天功能组件：chat.jsx](#121-聊天功能组件chatjsx)
     - [12.1.1 服务器端：](#1211-服务器端)
+      - [12.1.1.1 定义数据库的集合模型](#12111-定义数据库的集合模型)
+      - [12.1.1.2 定义后台发送 ajax 请求对应的路由](#12112-定义后台发送-ajax-请求对应的路由)
     - [12.1.2 前端部分](#1212-前端部分)
-      - [12.1.2.1 静态组件创建](#12121-静态组件创建)
-      - [12.1.2.2 收发消息](#12122-收发消息)
+      - [12.1.2.1 创建聊天界面的静态组件 Chat](#12121-创建聊天界面的静态组件-chat)
+      - [12.1.2.2 实现前后台的收发消息](#12122-实现前后台的收发消息)
   - [12.2 消息列表组件：message.jsx](#122-消息列表组件messagejsx)
+    - [12.2.1 获取当前用户的聊天消息列表](#1221-获取当前用户的聊天消息列表)
+      - [12.2.1.1 指定发送 ajax 请求的函数](#12211-指定发送-ajax-请求的函数)
+      - [12.2.1.2 Redux 部分](#12212-redux-部分)
+    - [12.2.2 实现已获取到的消息列表数据的动态显示](#1222-实现已获取到的消息列表数据的动态显示)
+    - [12.2.3 实现收发消息(单个消息)的实时显示](#1223-实现收发消息单个消息的实时显示)
+    - [12.2.4 在 Chat 组件中添加表情功能](#1224-在-chat-组件中添加表情功能)
   - [12.3 未读消息数量显示](#123-未读消息数量显示)
 
 # 1 前台项目准备
@@ -2523,7 +2531,7 @@ console.log("浏览器端向服务器发送消息:", { name: "Tom", date: Date.n
 import "./test/socketio_test";
 ```
 
-然后分别运行服务器端和浏览器端，尚硅谷老师运行没有问题，可以直接得到：
+然后分别运行服务器端和浏览器端，可以直接得到：
 ![23](./img/23.png)
 
 # 12 实现实时聊天
@@ -2534,6 +2542,8 @@ import "./test/socketio_test";
 ![24](./img/24.png)
 
 ### 12.1.1 服务器端：
+
+#### 12.1.1.1 定义数据库的集合模型
 
 需要将消息保存在数据库中，所以需要定义数据库模型，在`db/models.js`中：
 
@@ -2553,7 +2563,48 @@ const ChatModel = mongoose.model("chat", chatSchema);
 exports.ChatModel = ChatModel;
 ```
 
-定义对应的路由`routes/index.js`：
+#### 12.1.1.2 定义后台发送 ajax 请求对应的路由
+
+响应 ajax 请求时，需要返回的数据类型为对象，包含两个属性，code 表示发送请求成功，data 中存放两个属性，users 是当前所有指定类型的用户组成的一个对象，chatMsgs 是与当前用户相关的所有信息组成的列表(当前用户发出的和当前用户接收的)
+
+    {
+        "code": 0,
+        "data": {
+            "users": {
+                "5ae1d5d19151153d30e008fd": {
+                    "username": "ds2"
+                },
+                "5ae1ddd99ca58023d82351ae": {
+                    "username": "aa",
+                    "header": "头像1"
+                },
+                "5ae1df049ca58023d82351af": {
+                    "username": "aa2"
+                },
+                "5ae1e72aa072c522e024b18e": {
+                    "username": "bb",
+                    "header": "头像3"
+                },
+                "5ae1f088d37a442b749fc143": {
+                    "username": "laoban1",
+                    "header": "头像2"
+                }
+            },
+            "chatMsgs": [
+    			{
+                    "read": false,
+                    "_id": "5ae1f3c3a95eb824841199f1",
+                    "from": "5ae1f088d37a442b749fc143",
+                    "to": "5ae1ddd99ca58023d82351ae",
+                    "content": "aa",
+                    "create_time": 1524757443374,
+                    "__v": 0
+                }
+    		]
+        }
+    }
+
+在`routes/index.js`：
 
 ```
 const ChatModel = require("../db/models").ChatModel;// 查看用户信息的路由
@@ -2569,7 +2620,8 @@ router.get("/userlist", (req, res) => {
 // 获取当前用户的聊天消息列表
 router.get("/msglist", function (req, res) {
   // 获取cookies中保存的用户的userid
-  const userid = res.cookie.userid;
+  const userid = req.cookies.userid;
+  console.log("userid:", userid);
 
   // 查询得到所有user的文档数组
   /*
@@ -2592,18 +2644,20 @@ router.get("/msglist", function (req, res) {
       return users;
     })
     */
-  });
 
-  /*
+    /*
   查询userid相关的所有聊天信息:由userid发出的消息或者由userid接收的消息
   */
-  ChatModel.find({ $or: [{ from: userid }, { to: userid }] }, filter, function (
-    err,
-    chatMsgs
-  ) {
-    // chatMsgs是数组
-    //  返回包含所有用户和当前用户相关的所有聊天消息的数据
-    res.send({ code: 0, data: { users, chatMsgs } });
+    ChatModel.find(
+      { $or: [{ from: userid }, { to: userid }] },
+      filter,
+      function (err, chatMsgs) {
+        console.log({ chatMsgs });
+        // chatMsgs是数组
+        //  返回包含所有用户和当前用户相关的所有聊天消息的数据
+        res.send({ code: 0, data: { users, chatMsgs } });
+      }
+    );
   });
 });
 
@@ -2630,7 +2684,7 @@ router.post("/readmsg", function (req, res) {
 
 ### 12.1.2 前端部分
 
-#### 12.1.2.1 静态组件创建
+#### 12.1.2.1 创建聊天界面的静态组件 Chat
 
 在`src/containers/chat/chat.jsx`中：
 
@@ -2749,7 +2803,7 @@ handleSend = () => {
 ></InputItem>
 ```
 
-#### 12.1.2.2 收发消息
+#### 12.1.2.2 实现前后台的收发消息
 
 客户端向服务器端发送消息：`action.jsx`中:
 
@@ -2757,6 +2811,8 @@ handleSend = () => {
     连接服务器操作只需要执行一次(要保证内存中只创建了一个socket对象)，将所创建的socket对象保存在io中，创建socket连接对象之前先判断io中是否已经存在socket连接器了，没有再创建
 
     注意：之前在测试socket.io时，在入口文件中引入了import "./test/socketio_test";这个已经不用了，所以将其删掉
+
+    另外，此时socket对象是在发消息时才创建的，也就是说只有我发了消息之后，socket连接器对象才会存在，我收到别人发给我的消息时我才会有所反应，这是不对的，后面需要修改
 
 ```
 import io from "socket.io-client";
@@ -2790,7 +2846,7 @@ export const sendMsg = ({ from, to, content }) => {
 };
 ```
 
-服务器端接收客户端发送的消息，并且保存到数据库中，然后再将消息发送给浏览器端,新建文件`socketIO/socketio_server.js`：
+服务器端接收客户端发送的消息，并且保存到数据库中，处理数据，然后再将数据发送给所有的浏览器端，在浏览器端再判断是否是发送给自己的数据，如果是发送给自己的数据，就保存到 redux 中。新建文件`socketIO/socketio_server.js`：
 
 ```
 const ChatModel = require(`../db/models`).ChatModel;
@@ -2833,10 +2889,374 @@ module.exports = function (server) {
 之后打开数据库也可以发现数据库中出现了一个 chats 集合，并且其内部具有一个文档：
 ![29](./img/29.png)
 
+目前完成的功能：可以发送和接收消息，但是接收或者发送的消息还没有在聊天界面显示出来，之后就需要完成这个功能：
+
+    1 首先获取与当前登录的用户相关的所有消息列表
+    2 再筛选信息与每一个用户的关系(是当前用户与该用户收发的消息吗)，显示当前用户与该用户的聊天信息界面
+
 ## 12.2 消息列表组件：message.jsx
 
 实现的功能：
 ![25](./img/25.png)
+
+### 12.2.1 获取当前用户的聊天消息列表
+
+获取当前用户与其他所有用户的消息信息，请求的 url:`localhost:4000/msglist`,请求方式为 get
+
+#### 12.2.1.1 指定发送 ajax 请求的函数
+
+`api/index.js`中：
+
+    编辑获取当前用户的所有聊天信息的ajax请求函数
+    reqReadMsg函数是后期在指定消息为已读时操作的
+
+```
+// 获取当前用户的聊天消息列表
+export const reqChatMsgList = () => ajax("/msglist");
+
+// 修改指定消息为已读
+export const reqReadMsg = (from) => ajax("/readMsg", { from }, "POST");
+```
+
+#### 12.2.1.2 Redux 部分
+
+先定义两个 action-type:
+
+```
+// 获取用户的消息列表   与当前登录用户相关的所有消息
+export const RECEIVE_Msg_LIST = "receive_msg_list";
+// 当前登录的用户接收到一条消息
+export const RECEIVE_Msg = "receive_msg";
+```
+
+由于目前操作的状态变成了 MsgList,所以需要定义一个新的 reducer,在`reducers.js`中：
+
+```
+// 产生聊天状态的reducer
+const initChat = {
+  users: {}, // 所有用户信息的对象  属性名：userid, 属性值：{username,header}
+  chatMsgs: [], // 当前用户发出的信息以及接收到的信息的数组
+  unReadCount: 0, //总的未读数量，显式在底部导航栏的
+};
+function chat(state = initChat, action) {
+  switch (action.type) {
+    case RECEIVE_Msg_LIST:
+      return;
+    case RECEIVE_Msg:
+      return;
+    default:
+      return state;
+  }
+}
+```
+
+只要用户登录成功就需要得到当前登录用户的消息列表，而之前写的 action 中，用户注册、登录或者自动登录时，就属于登陆成功，所以需要在这三个 action creator 中均添加获取当前登录用户的消息列表的 action,所以先将其封装为一个函数，再分别引入，在`action.jsx`中：
+
+另外，对于 12.1.2.1 中存在的 socket 对象创建时机不对的问题，可以在获取消息列表之前就创建 socket 对象，所以注释掉之前在 sendMsg 中的 iniIO(),在 getMsgList 中添加 initIO()。getMsgList 是在用户登录成功之后执行的，此时初始化 IO 比较好
+
+```
+// 接收消息列表的同步action
+export const receiveMsgList = ({ users, chatMsgs }) => ({
+  type: RECEIVE_Msg_LIST,
+  data: { users, chatMsgs },
+});
+
+// 异步获取消息列表数据
+async function getMsgList(dispatch) {
+  initIO();
+  const response = await reqChatMsgList();
+  const result = response.data;
+  if (result.code === 0) {
+    const { users, chatMsgs } = result.data;
+    // 分发同步action
+    dispatch(receiveMsgList({ users, chatMsgs }));
+  }
+}
+
+// 注册异步action
+export const register = (user) => {
+  const { username, password, password2, type } = user;
+
+  // 做表单的前台验证
+  if (!username) {
+    return errorMsg("用户名不能为空");
+  } else if (password !== password2) {
+    return errorMsg("两次输入密码不一致");
+  }
+
+  //表单数据合法，返回一个发ajax请求的异步action函数
+  return async (dispatch) => {
+    const response = await reqRegister({ username, password, type });
+    const result = response.data;
+    if (result.code === 0) {
+      // -----------------关键代码---------------------
+      getMsgList(dispatch);
+      // -----------------关键代码---------------------
+      // 成功,分发授权成功的同步action
+      dispatch(authSuccess(result.data));
+    } else {
+      // 失败,分发提示错误信息的同步action
+      dispatch(errorMsg(result.msg));
+    }
+  };
+};
+
+// 登录异步action
+export const login = (user) => {
+  const { username, password } = user;
+  // 做表单的前台验证
+  if (!username) {
+    return errorMsg("用户名不能为空");
+  } else if (!password) {
+    return errorMsg("密码不能为空");
+  }
+
+  return async (dispatch) => {
+    const response = await reqLogin({ username, password });
+    const result = response.data;
+    if (result.code === 0) {
+      // -----------------关键代码---------------------
+      getMsgList(dispatch);
+      // -----------------关键代码---------------------
+      // 成功,分发授权成功的同步action
+      dispatch(authSuccess(result.data));
+    } else {
+      // 失败,分发提示错误信息的同步action
+      dispatch(errorMsg(result.msg));
+    }
+  };
+};
+
+// 获取用户异步action
+export const getUser = () => {
+  return async (dispatch) => {
+    // 执行异步ajax请求
+    const response = await reqUser();
+    const result = response.data;
+    if (result.code === 0) {
+      // -----------------关键代码---------------------
+      getMsgList(dispatch);
+      // -----------------关键代码---------------------
+      dispatch(receiveUser(result.data));
+    } else {
+      dispatch(resetUser(result.msg));
+    }
+  };
+};
+```
+
+修改 reducer.jsx:
+
+```
+// 产生聊天状态的reducer
+const initChat = {
+  users: {}, // 所有用户信息的对象  属性名：userid, 属性值：{username,header}
+  chatMsgs: [], // 当前用户发出的信息以及接收到的信息的数组
+  unReadCount: 0, //总的未读数量，显式在底部导航栏的
+};
+function chat(state = initChat, action) {
+  switch (action.type) {
+    // ------------关键代码----------------
+    case RECEIVE_Msg_LIST:
+      const { users, chatMsgs } = action.data;
+      return { users, chatMsgs, unReadCount: 0 };
+    // ------------关键代码----------------
+    case RECEIVE_Msg:
+      return;
+    default:
+      return state;
+  }
+}
+```
+
+目前完成的功能：获得了某个用户的所有聊天信息列表
+
+### 12.2.2 实现已获取到的消息列表数据的动态显示
+
+接下来显示登录用户与任一用户的聊天界面，实现两个用户的聊天信息的显示，修改 `chat.jsx`:
+
+    (1) 将state.chat通过connect传递给Chat组件的props属性  chat:{users,chatMsgs}
+    (2) 由于目标用户发的消息和登录用户发的消息的摆放位置不同，所以需要分类，并且以不同的方式显示
+    (3) 有一点要特别注意：需要判断一下当前的users中是否已经从异步端获得了所有的指定类型的用户信息，因为如果还没有获得，则说明目前不具备与目标用户的聊天信息，所以header等信息就无法获得,从而会报错
+
+```
+import React from "react";
+import { connect } from "react-redux";
+import { NavBar, List, InputItem } from "antd-mobile";
+import { sendMsg } from "../../redux/actions";
+
+const Item = List.Item;
+
+class Chat extends React.Component {
+  state = {
+    content: "",
+  };
+  handleSend = () => {
+    // 收集数据
+    const from = this.props.user._id;
+    const to = this.props.match.params.userid;
+    const content = this.state.content.trim();
+    // 发送请求(发消息)
+    if (content) {
+      // 异步操作
+      this.props.sendMsg({ from, to, content });
+    }
+    // 清除输入数据
+    this.setState({ content: "" });
+  };
+  render() {
+    // debugger;
+    // console.log("我又render了一次.....");
+
+    // ------------------关键代码-------------------
+    const { user, chat } = this.props;
+    const { users, chatMsgs } = chat;
+    //当前chatMsgs中包含我和所有其他用户的聊天信息，我现在只需要显示我和某个特定用户的聊天信息
+    // 所以需要过滤
+    // 先得到当前的chat_id
+    const meId = user._id;
+
+    // 刚开始users中是没有数据的，是一个空对象，需要发送异步请求获取消息列表的同时
+    // 获取到users
+    if (!users[meId]) {
+      return null;
+    }
+
+    const targetId = this.props.match.params.userid;
+    const chat_id = [meId, targetId].sort().join("_");
+    const msgs = chatMsgs.filter((msg) => msg.chat_id === chat_id);
+    // msgs中的消息有两种情况：我发的，对方发的
+
+    console.log(targetId);
+    // 获取目标用户的头像
+    const targetHeader = users[targetId].header;
+    // 有一个问题，对方可能还没有完善信息，并不具备icon
+    // 这里直接在外部获取到指定用户的头像即可，如果在map函数中就需要执行多次，但是用户是固定的，所以没必要require多次
+    const targetIcon = targetHeader
+      ? require(`../../assets/images/${targetHeader}.png`)
+      : null;
+    // ------------------关键代码-------------------
+
+    return (
+      <div id="chat-page">
+        <NavBar>{users[targetId].username}</NavBar>
+        <List>
+        // ------------------关键代码-------------------
+          {msgs.map((msg) => {
+            if (msg.to === meId) {
+              // 对方发给我的
+              return (
+                (
+                  <Item key={msg._id} thumb={targetIcon}>
+                    msg.content
+                  </Item>
+                )
+              );
+            } else {
+              //我发给对方的
+              return (
+                <Item key={msg._id} extra="我" className="chat-me">
+                  {msg.content}
+                </Item>
+              );
+            }
+          })}
+          // ------------------关键代码-------------------
+        </List>
+        <div className="am-tab-bar">
+          <InputItem
+            placeholder="请输入"
+            extra={<span onClick={this.handleSend}>发送</span>}
+            value={this.state.content}
+            onChange={(val) => this.setState({ content: val })}
+          ></InputItem>
+        </div>
+      </div>
+    );
+  }
+}
+
+// ------------------关键代码-------------------
+export default connect((state) => ({ user: state.user, chat: state.chat }), {
+  sendMsg,
+})(Chat);
+// ------------------关键代码-------------------
+```
+
+### 12.2.3 实现收发消息(单个消息)的实时显示
+
+因为在接收消息的判断时使用的是全局对象 io,所以需要先判断接收到的数据是否与当前登录的用户有关，是否是发给当前用户的，所以需要修改接收消息的监听，在`actions.js`中：
+
+    1 使用当前用户的userid与chatMsg中的to或者from比较，是当前用户发出的消息，或者是当前用户接收到的消息，才将其保存，所以需要传入一个参数userid
+    2 要保存最新接收的或者发送的消息，所以需要分发同步任务，所以需要传入dispatch作为第二个参数
+    3 分发同步任务就需要定义接收单个消息的同步action
+    4 修改initIO的调用，因为在getMsgList中调用了initIO,所以需要在getMsgList中传入userid和dispatch参数，在异步注册、异步登录及自动登录中调用getMsgList的地方：加入userid和dispatch参数
+
+```
+// 接收到一个消息的同步action
+const receiveMsg = (chatMsg) => ({
+  type: RECEIVE_Msg,
+  data: chatMsg,
+});
+
+function initIO(userid, dispatch) {
+  if (!io.socket) {
+    // 连接服务器,得到与服务器的连接对象 ws是协议，类似于http
+    io.socket = io("ws://localhost:4000");
+
+    // 接收来自服务器端的消息
+    io.socket.on("receiveMsg", function (chatMsg) {
+      console.log("接收来自服务器端的消息：", chatMsg);
+
+      // ----------------------关键代码-----------------------
+      // 只有当chatMsg是与当前用户相关的消息，才去分发同步action保存
+      if (userid === chatMsg.from || userid === chatMsg.to) {
+        dispatch(receiveMsg(chatMsg));
+      }
+      // ----------------------关键代码-------------------------
+    });
+  }
+}
+
+// 异步获取消息列表数据
+async function getMsgList(userid, dispatch) {
+  initIO(userid, dispatch);
+  const response = await reqChatMsgList();
+  const result = response.data;
+  if (result.code === 0) {
+    const { users, chatMsgs } = result.data;
+    // 分发同步action
+    dispatch(receiveMsgList({ users, chatMsgs }));
+  }
+}
+```
+
+修改`reducers.js`,将与当前用户相关的收发的单个消息 chatMsg 放入总的消息列表 chatMsgs 中：
+
+```
+function chat(state = initChat, action) {
+  switch (action.type) {
+    case RECEIVE_Msg_LIST:
+      const { users, chatMsgs } = action.data;
+      return { users, chatMsgs, unReadCount: 0 };
+    case RECEIVE_Msg: // data:chatMsg
+    // -------------关键代码--------------------
+      const chatMsg = action.data;
+      return {
+        users: state.users,
+        chatMsgs: [...state.chatMsgs, chatMsg],
+        unReadCount: 0,
+      };
+      // -------------关键代码--------------------
+    default:
+      return state;
+  }
+}
+```
+
+然后就可以实时显示当前用户收发到的消息了
+
+### 12.2.4 在 Chat 组件中添加表情功能
 
 ## 12.3 未读消息数量显示
 

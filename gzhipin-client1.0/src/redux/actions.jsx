@@ -9,6 +9,8 @@ import {
   reqUpdateUser,
   reqUser,
   reqUserList,
+  reqChatMsgList,
+  reqReadMsg,
 } from "../api";
 import {
   AUTH_SUCCESS,
@@ -16,6 +18,8 @@ import {
   RECEIVE_USER,
   RESET_USER,
   RECEIVE_USER_LIST,
+  RECEIVE_Msg_LIST,
+  RECEIVE_Msg,
 } from "./action-types";
 
 import io from "socket.io-client";
@@ -25,7 +29,13 @@ import io from "socket.io-client";
    1 创建对象之前：判断对象是否已经创建，只有当不存在时才创建
    2 创建对象之后：保存socket对象在io对象中
 */
-function initIO() {
+// 接收到一个消息的同步action
+const receiveMsg = (chatMsg) => ({
+  type: RECEIVE_Msg,
+  data: chatMsg,
+});
+
+function initIO(userid, dispatch) {
   if (!io.socket) {
     // 连接服务器,得到与服务器的连接对象 ws是协议，类似于http
     io.socket = io("ws://localhost:4000");
@@ -33,7 +43,23 @@ function initIO() {
     // 接收来自服务器端的消息
     io.socket.on("receiveMsg", function (chatMsg) {
       console.log("接收来自服务器端的消息：", chatMsg);
+      // 只有当chatMsg是与当前用户相关的消息，才去分发同步action保存
+      if (userid === chatMsg.from || userid === chatMsg.to) {
+        dispatch(receiveMsg(chatMsg));
+      }
     });
+  }
+}
+
+// 异步获取消息列表数据
+async function getMsgList(userid, dispatch) {
+  initIO(userid, dispatch);
+  const response = await reqChatMsgList();
+  const result = response.data;
+  if (result.code === 0) {
+    const { users, chatMsgs } = result.data;
+    // 分发同步action
+    dispatch(receiveMsgList({ users, chatMsgs }));
   }
 }
 
@@ -42,7 +68,6 @@ export const sendMsg = ({ from, to, content }) => {
   return (dispatch) => {
     console.log("客户端向服务器发送消息", { from, to, content });
     // 发送消息用的是socket.io
-    initIO();
     // 发消息
     io.socket.emit("sendMsg", { from, to, content });
   };
@@ -56,6 +81,11 @@ const errorMsg = (msg) => ({ type: ERROR_MSG, data: msg });
 const receiveUser = (user) => ({ type: RECEIVE_USER, data: user });
 // 重置用户信息的同步action
 export const resetUser = (msg) => ({ type: RESET_USER, data: msg });
+// 接收消息列表的同步action
+const receiveMsgList = ({ users, chatMsgs }) => ({
+  type: RECEIVE_Msg_LIST,
+  data: { users, chatMsgs },
+});
 
 // 获取用户列表的同步action
 const receiveUserList = (userList) => ({
@@ -88,6 +118,9 @@ export const register = (user) => {
     const response = await reqRegister({ username, password, type });
     const result = response.data;
     if (result.code === 0) {
+      // 获取当前用户的id
+      const userid = result.data._id;
+      getMsgList(userid, dispatch);
       // 成功,分发授权成功的同步action
       dispatch(authSuccess(result.data));
     } else {
@@ -120,6 +153,9 @@ export const login = (user) => {
     const response = await reqLogin({ username, password });
     const result = response.data;
     if (result.code === 0) {
+      // 获取当前用户的id
+      const userid = result.data._id;
+      getMsgList(userid, dispatch);
       // 成功,分发授权成功的同步action
       dispatch(authSuccess(result.data));
     } else {
@@ -153,6 +189,9 @@ export const getUser = () => {
     const response = await reqUser();
     const result = response.data;
     if (result.code === 0) {
+      // 获取当前用户的id
+      const userid = result.data._id;
+      getMsgList(userid, dispatch);
       dispatch(receiveUser(result.data));
     } else {
       dispatch(resetUser(result.msg));

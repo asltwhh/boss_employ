@@ -163,7 +163,8 @@ router.get("/userlist", (req, res) => {
 // 获取当前用户的聊天消息列表
 router.get("/msglist", function (req, res) {
   // 获取cookies中保存的用户的userid
-  const userid = res.cookie.userid;
+  const userid = req.cookies.userid;
+  console.log("userid:", userid);
 
   // 查询得到所有user的文档数组
   /* 
@@ -186,18 +187,19 @@ router.get("/msglist", function (req, res) {
       return users;
     })
     */
-  });
 
-  /* 
+    /* 
   查询userid相关的所有聊天信息:由userid发出的消息或者由userid接收的消息
   */
-  ChatModel.find({ $or: [{ from: userid }, { to: userid }] }, filter, function (
-    err,
-    chatMsgs
-  ) {
-    // chatMsgs是数组
-    //  返回包含所有用户和当前用户相关的所有聊天消息的数据
-    res.send({ code: 0, data: { users, chatMsgs } });
+    ChatModel.find(
+      { $or: [{ from: userid }, { to: userid }] },
+      filter,
+      function (err, chatMsgs) {
+        // chatMsgs是数组
+        //  返回包含所有用户和当前用户相关的所有聊天消息的数据
+        res.send({ code: 0, data: { users, chatMsgs } });
+      }
+    );
   });
 });
 
