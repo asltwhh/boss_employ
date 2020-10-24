@@ -75,7 +75,7 @@
     - [12.1.2 前端部分](#1212-前端部分)
       - [12.1.2.1 创建聊天界面的静态组件 Chat](#12121-创建聊天界面的静态组件-chat)
       - [12.1.2.2 实现前后台的收发消息](#12122-实现前后台的收发消息)
-  - [12.2 消息列表组件：message.jsx](#122-消息列表组件messagejsx)
+  - [12.2 实现用户间收发消息实时显示](#122-实现用户间收发消息实时显示)
     - [12.2.1 获取当前用户的聊天消息列表](#1221-获取当前用户的聊天消息列表)
       - [12.2.1.1 指定发送 ajax 请求的函数](#12211-指定发送-ajax-请求的函数)
       - [12.2.1.2 Redux 部分](#12212-redux-部分)
@@ -471,16 +471,16 @@ export default class Login extends React.Component{
 - 3 产生 express 应用：`express -e app_name`
   - 使用`-e`是因为这样产生的应用下的 views 文件夹下是.ejs 文件
   - `express -e app_name`or`express app_name`在 views 文件夹下会产生`.jade`文件
-  - 使用`express --no-view app`产生的是 html 界面，在 public 文件夹下
+  - 使用`express --no-view app_name`产生的是 html 界面，在 public 文件夹下
 - 4 安装其他的依赖包:`npm install`
-  - express 创建项目的时候，对于一些库，例如 http-errors，这些库不是 node 自带的核心模块，但是确是 express 框架必须要用到的。所以得用命令 npm install 初始化一下，把这些 express 依赖的库装入。
+  - express 创建项目的时候，对于一些依赖的模块，在 package.json 中的 dependences 中说明了，用命令 npm install 初始化一下，把这些 express 依赖的库装入。
 - 5 运行项目：`npm start`,然后在浏览器的 3000 端口查看结果：http://127.0.0.1:3000/
   ![07](./img/07.png)
 
 - 6 目录结构：
 
 ```
-  bin, 存放启动项目的脚本文件
+  bin, 存放启动项目的脚本文件,管理的是使用 url 访问项目的端口号，以及url访问出错情况下的一些处理
   node_modules, 存放所有的项目依赖库。
   public，静态文件(css,js,img)
   routes，路由文件(MVC中的C,controller)
@@ -2894,7 +2894,7 @@ module.exports = function (server) {
     1 首先获取与当前登录的用户相关的所有消息列表
     2 再筛选信息与每一个用户的关系(是当前用户与该用户收发的消息吗)，显示当前用户与该用户的聊天信息界面
 
-## 12.2 消息列表组件：message.jsx
+## 12.2 实现用户间收发消息实时显示
 
 实现的功能：
 ![25](./img/25.png)
