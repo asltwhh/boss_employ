@@ -82,6 +82,9 @@
     - [12.2.2 实现已获取到的消息列表数据的动态显示](#1222-实现已获取到的消息列表数据的动态显示)
     - [12.2.3 实现收发消息(单个消息)的实时显示](#1223-实现收发消息单个消息的实时显示)
     - [12.2.4 在 Chat 组件中添加表情功能](#1224-在-chat-组件中添加表情功能)
+  - [12.3 显示分组消息列表 message.jsx](#123-显示分组消息列表-messagejsx)
+    - [12.3.1 完成静态组件](#1231-完成静态组件)
+    - [12.3.2 实现动态化显示最后一条消息](#1232-实现动态化显示最后一条消息)
   - [12.3 未读消息数量显示](#123-未读消息数量显示)
 
 # 1 前台项目准备
@@ -3257,6 +3260,261 @@ function chat(state = initChat, action) {
 然后就可以实时显示当前用户收发到的消息了
 
 ### 12.2.4 在 Chat 组件中添加表情功能
+
+每一个表情就是一个字符文本，可以作为字符串直接使用，各个操作系统均能显示
+
+在线可用的表情：https://emojipedia.org/
+
+首先，添加一个表情图标：
+![30](./img/30.png)
+
+```
+<InputItem
+  placeholder="请输入"
+  extra={
+    //----关键代码------------
+    <span>
+      <span onClick={this.toggleShow} style={{ marginRight: 5 }}>
+        😃
+      </span>
+      <span onClick={this.handleSend}>发送</span>
+    </span>
+    //----关键代码------------
+  }
+  value={this.state.content}
+  onChange={(val) => this.setState({ content: val })}
+  onFocus={() => this.setState({ isShow: false })}
+></InputItem>
+```
+
+然后为该图标设置事件监听，使得点击该图标之后显示很多个表情图标：
+
+    1 添加一个状态isShow表示是否显示表情列表
+    2 在打开对话框时，加载表情列表
+    4 为表情图标添加事件单击函数toggleShow,通过转变isShow的状态，来确定是否显示列表
+    5 在render中，通过判断当前的isShow,决定是否显示表情列表
+
+```
+state = {
+  content: "",
+  isShow: false, //是否显示表情列表
+};
+componentWillMount() {
+  // 在第一次render之前调用，表示在打开对话框时已经加载到了表情文本
+  const emojis = [
+    "😀","😃","😄","😁","😆","😅","🤣",
+    "😂","🙂","🙃","😀","😃","😄","😁",
+  ];
+  // this.emojis是一个元素为对象的数组
+  this.emojis = emojis.map((emoji) => ({ text: emoji }));
+}
+toggleShow = () => {
+    const isShow = !this.state.isShow;
+    this.setState({ isShow });
+};
+
+{this.state.isShow ? (
+<Grid
+  data={this.emojis}
+  columnNum={8}
+  carouselMaxRow={4}
+  isCarousel={true}
+  onClick={(item) => {
+    this.setState({ content: this.state.content + item.text });
+  }}
+/>
+) : null}
+```
+
+此时运行程序，发现在点击了表情图标后，出现了问题，表情图标不能全部显示：
+![31](./img/31.png)
+这是 anti-mobile 自身设计的问题，需要修改 toggleShow,如下：
+
+```
+toggleShow = () => {
+  const isShow = !this.state.isShow;
+  this.setState({ isShow });
+  // 这是为了解决表情列表显示时的bug
+  if (isShow) {
+    // 异步手动派发一个resize事件，解决表情列表显示的bug
+    setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 0);
+  }
+};
+```
+
+然后还会发现一个滑动消息列表时，顶部导航栏也会被滑动上去，所以我们要为其添加一个之前定义好的类：sticky-header
+
+```
+<NavBar
+  className="sticky-header"
+>
+```
+
+与此同时发现消息列表的部分消息被上下导航栏遮挡住了，所以需要为消息列表 List 添加上下外边框：
+
+```
+<List style={{ marginTop: 50, marginBottom: 50 }}>
+```
+
+在顶部导航栏左边应该还有一个退回按钮，退回到大神或者老板列表：
+
+```
+<NavBar
+  icon={<Icon type="left" />}
+  onLeftClick={() => {
+    this.props.history.goBack();
+  }}
+  className="sticky-header"
+>
+```
+
+然后我们发现每一次打开和某个用户的聊天界面，最开始显示的都是最早发送的消息那一页，所以我们需要在页面加载后自动滑动到最新的消息处：
+
+```
+componentDidMount() {
+  // 初始化显示列表，使滑动到与该用户收发的最新消息处
+  window.scrollTo(0, document.body.scrollHeight);
+}
+```
+
+此时可以发现打开和某个用户的聊天界面后出现的就是最近的信息页，但是当我们发送了一个新消息，却没有自动滑动到新消息显示页，需要手动向下滑,所以需要在状态改变后自动令其下滑到最新的消息处：
+
+```
+componentDidUpdate() {
+  // 更新显示列表
+  window.scrollTo(0, document.body.scrollHeight);
+}
+```
+
+## 12.3 显示分组消息列表 message.jsx
+
+### 12.3.1 完成静态组件
+
+```
+import React from "react";
+import { connect } from "react-redux";
+import { List, Badge } from "antd-mobile";
+
+const Item = List.Item;
+const Brief = Item.Brief;
+
+class Message extends React.Component {
+  render() {
+    const { user } = this.props;
+    const { users, chatMsgs } = this.props.chat;
+    // 对chatMsgs使用chat_id进行分组
+    const lastMsgs = getLastMsgs(chatMsgs);
+    return (
+      <div>
+        {/* 设置上下外边距       我们在这个界面只需要显示聊天的最后一条消息即可 */}
+        <List style={{ marginTop: 50, marginBottom: 50 }}>
+            <Item
+              extra={<Badge text={3} />} // 未读消息数量
+              thumb={require(`../../assets/images/头像1.png`)} // 头像
+              arrow="horizontal"
+            >
+              消息内容
+              <Brief>用户名</Brief>
+            </Item>
+        </List>
+      </div>
+    );
+  }
+}
+export default connect(
+  (state) => ({ }),
+  {}
+)(Message);
+```
+
+### 12.3.2 实现动态化显示最后一条消息
+
+    首先我们需要获取到当前用户与其他用户聊天的最后一条消息，因为在当前页面我们只需要显示最后一条消息即可，所有的消息显示是在chat.jsx中处理的
+        定义getLastMsg函数
+    获取到当前用户与其他用户聊天的最后一条消息列表后，通过map的形式显示即可
+
+```
+/* 消息列表界面的路由组件 */
+import React from "react";
+import { connect } from "react-redux";
+import { List, Badge } from "antd-mobile";
+
+const Item = List.Item;
+const Brief = Item.Brief;
+
+function getLastMsgs(chatMsgs) {
+  // 1 找到每个聊天的lastMsg,并用一个容器对象来保存{chat_id:lastMsg}
+  const lastMsgObjs = {};
+  chatMsgs.forEach((msg) => {
+    // 得到msg的聊天id  谁给谁发的消息  fromid_toid
+    const chatId = msg.chat_id;
+    // 获取已保存的当前组件的lastMsg
+    const lastMsg = lastMsgObjs[chatId];
+    if (!lastMsg) {
+      // 没有则说明当前msg就是所在组的lastMsg
+      lastMsgObjs[chatId] = msg;
+    } else {
+      // 如果msg比lastmsg晚，就将msg保存为lastmsg
+      if (msg.create_time > lastMsg.create_time) {
+        lastMsgObjs[chatId] = msg;
+      }
+    }
+  });
+  // console.log(lastMsgObjs);   {chat_id:msg}
+  // 得到所有的lastMsg的数组,将对象形式转换为数组形式
+  const lastMsgs = Object.values(lastMsgObjs);
+  // console.log(lastMsgs);  [msg,...]
+  // 排序(按照create_time)降序排列
+  lastMsgs.sort(function (m1, m2) {
+    // 结果小于0，则m1在前
+    return m2.create_time - m1.create_time;
+  });
+  return lastMsgs;
+}
+
+class Message extends React.Component {
+  render() {
+    const { user } = this.props;
+    const { users, chatMsgs } = this.props.chat;
+    // 对chatMsgs使用chat_id进行分组
+    const lastMsgs = getLastMsgs(chatMsgs);
+    return (
+      <div>
+        {/* 设置上下外边距       我们在这个界面只需要显示聊天的最后一条消息即可 */}
+        <List style={{ marginTop: 50, marginBottom: 50 }}>
+          {lastMsgs.map((msg) => {
+            // 得到目标用户的id
+            const targetUserId = msg.to === user._id ? msg.from : msg.to;
+            const targetUser = users[targetUserId];
+            return (
+              <Item
+                key={msg._id}
+                extra={<Badge text={3} />} // 未读消息数量
+                thumb={
+                  targetUser.header
+                    ? require(`../../assets/images/${targetUser.header}.png`)
+                    : null
+                } // 头像
+                arrow="horizontal"
+                onClick={() => this.props.history.push(`/chat/${targetUserId}`)}
+              >
+                {msg.content}
+                <Brief>{targetUser.username}</Brief>
+              </Item>
+            );
+          })}
+        </List>
+      </div>
+    );
+  }
+}
+export default connect(
+  (state) => ({ user: state.user, chat: state.chat }),
+  {}
+)(Message);
+```
 
 ## 12.3 未读消息数量显示
 

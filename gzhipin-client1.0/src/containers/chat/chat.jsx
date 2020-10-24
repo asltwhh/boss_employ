@@ -1,6 +1,6 @@
 import React from "react";
 import { connect } from "react-redux";
-import { NavBar, List, InputItem } from "antd-mobile";
+import { NavBar, List, InputItem, Grid, Icon } from "antd-mobile";
 import { sendMsg } from "../../redux/actions";
 
 const Item = List.Item;
@@ -8,7 +8,54 @@ const Item = List.Item;
 class Chat extends React.Component {
   state = {
     content: "",
+    isShow: false, //是否显示表情列表
   };
+  componentWillMount() {
+    // 在第一次render之前调用，表示在打开对话框时已经加载到了表情文本
+    const emojis = [
+      "😀",
+      "😃",
+      "😄",
+      "😁",
+      "😆",
+      "😅",
+      "🤣",
+      "😂",
+      "🙂",
+      "🙃",
+      "😀",
+      "😃",
+      "😄",
+      "😁",
+      "😆",
+      "😅",
+      "🤣",
+      "😂",
+      "🙂",
+      "🙃",
+      "😀",
+      "😃",
+      "😄",
+      "😁",
+      "😆",
+      "😅",
+      "🤣",
+      "😂",
+      "🙂",
+      "🙃",
+    ];
+    // this.emojis是一个元素为对象的数组
+    this.emojis = emojis.map((emoji) => ({ text: emoji }));
+  }
+
+  componentDidMount() {
+    // 初始化显示列表，使滑动到与该用户收发的最新消息处
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  componentDidUpdate() {
+    // 更新显示列表
+    window.scrollTo(0, document.body.scrollHeight);
+  }
   handleSend = () => {
     // 收集数据
     const from = this.props.user._id;
@@ -21,6 +68,17 @@ class Chat extends React.Component {
     }
     // 清除输入数据
     this.setState({ content: "" });
+  };
+  toggleShow = () => {
+    const isShow = !this.state.isShow;
+    this.setState({ isShow });
+    // 这是为了解决表情列表显示时的bug
+    if (isShow) {
+      // 异步手动派发一个resize事件，解决表情列表显示的bug
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+      }, 0);
+    }
   };
   render() {
     // debugger;
@@ -56,8 +114,16 @@ class Chat extends React.Component {
 
     return (
       <div id="chat-page">
-        <NavBar>{users[targetId].username}</NavBar>
-        <List>
+        <NavBar
+          icon={<Icon type="left" />}
+          onLeftClick={() => {
+            this.props.history.goBack();
+          }}
+          className="sticky-header"
+        >
+          {users[targetId].username}
+        </NavBar>
+        <List style={{ marginTop: 50, marginBottom: 50 }}>
           {msgs.map((msg) => {
             if (msg.to === meId) {
               // 对方发给我的
@@ -79,10 +145,29 @@ class Chat extends React.Component {
         <div className="am-tab-bar">
           <InputItem
             placeholder="请输入"
-            extra={<span onClick={this.handleSend}>发送</span>}
+            extra={
+              <span>
+                <span onClick={this.toggleShow} style={{ marginRight: 5 }}>
+                  😃
+                </span>
+                <span onClick={this.handleSend}>发送</span>
+              </span>
+            }
             value={this.state.content}
             onChange={(val) => this.setState({ content: val })}
+            onFocus={() => this.setState({ isShow: false })}
           ></InputItem>
+          {this.state.isShow ? (
+            <Grid
+              data={this.emojis}
+              columnNum={8}
+              carouselMaxRow={4}
+              isCarousel={true}
+              onClick={(item) => {
+                this.setState({ content: this.state.content + item.text });
+              }}
+            />
+          ) : null}
         </div>
       </div>
     );
