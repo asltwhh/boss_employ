@@ -86,6 +86,12 @@
     - [12.3.1 完成静态组件](#1231-完成静态组件)
     - [12.3.2 实现动态化显示最后一条消息](#1232-实现动态化显示最后一条消息)
   - [12.3 未读消息数量显示](#123-未读消息数量显示)
+    - [12.3.1 每一个分组的未读数量显示](#1231-每一个分组的未读数量显示)
+    - [12.3.2 总的未读数量获取及显示](#1232-总的未读数量获取及显示)
+    - [12.3.3 更新未读消息的数量](#1233-更新未读消息的数量)
+      - [12.3.3.1 编写后台路由](#12331-编写后台路由)
+      - [12.3.3.2 编写前台请求](#12332-编写前台请求)
+  - [12.4 给老板列表或者大神列表添加动画效果](#124-给老板列表或者大神列表添加动画效果)
 
 # 1 前台项目准备
 
@@ -2663,26 +2669,6 @@ router.get("/msglist", function (req, res) {
     );
   });
 });
-
-/* 修改消息为已读:标记消息已读只能修改别人发给我的消息为已读，我发给别人的需要人家改 */
-
-router.post("/readmsg", function (req, res) {
-  // 得到请求中的 from 和 to
-  const from = req.body.from; // 给当前登录的用户发消息的用户
-  const to = req.cookies.userid; // 当前登录的用户
-  /*
-  更新数据库中的chat数据
-  */
-  ChatModel.update(
-    { from, to, read: false }, // 修改的条件：其他人发给当前用户的，并且消息显示未读的
-    { read: true }, // 将read属性修改为true
-    { multi: true }, // multi为true表示一次更新多条符合条件的信息
-    function (err, doc) {
-      console.log("/readmsg", doc);
-      res.send({ code: 0, data: doc.nModified }); // 返回更新的消息数量
-    }
-  );
-});
 ```
 
 ### 12.1.2 前端部分
@@ -3520,3 +3506,371 @@ export default connect(
 
 实现的功能：两个地方
 ![29](./img/29.png)
+
+### 12.3.1 每一个分组的未读数量显示
+
+在 message.jsx 中，首先修改 getLastMsg 函数，在遍历所有的聊天消息时，先为每一个聊天消息添加一个 unReadCount 属性，判断如果该消息是发给当前用户(即不是用户自己发出的)并且消息的 read 属性为 false,则表示该条消息未读，则令 unReadCount=1,否则令 unReadCount=0;
+
+获取每组的未读消息总数：遍历所有的 msg,从 lastMsgObjs 中取出 lastMsg,通过判断 lastMsg 是否存在，不存在则当前的 msg 就是该组的最后一条 msg,否则则需要使用当前 lastMsg 的 unReadCount 属性+当前 msg 的 unReadCount 累加得到当前组的未读消息总数。
+
+```
+function getLastMsgs(chatMsgs, userId) {
+
+// --------------------关键代码start--------------------------
+
+  // 1 找到每个聊天的lastMsg,并用一个容器对象来保存{chat_id,lastMsg}
+  const lastMsgObjs = {};
+  chatMsgs.forEach((msg) => {
+    // 对msg进行统计
+    if (msg.to === userId && !msg.read) {
+      // 如果消息是发给我的并且消息显示未读，则将msg的unReadCOunt设置为1
+      msg.unReadCount = 1;
+    } else {
+      msg.unReadCount = 0;
+    }
+// --------------------关键代码end--------------------------
+    // 得到msg的聊天id  谁给谁发的消息  fromid_toid
+    const chatId = msg.chat_id;
+    // 获取已保存的当前组的lastMsg
+    const lastMsg = lastMsgObjs[chatId];
+    if (!lastMsg) {
+      // 没有则说明当前msg就是所在组的lastMsg
+      lastMsgObjs[chatId] = msg;
+    } else {
+// --------------------关键代码start--------------------------
+      // 累加unReadCount
+      const unReadCount = lastMsg.unReadCount + msg.unReadCount;
+      // 如果msg比lastmsg晚，就将msg保存为lastmsg
+      if (msg.create_time > lastMsg.create_time) {
+        lastMsgObjs[chatId] = msg;
+      }
+      // 保存在最新的lastMsg上
+      lastMsgObjs[chatId].unReadCount = unReadCount;
+// --------------------关键代码end--------------------------
+    }
+  });
+  // console.log(lastMsgObjs);   {chat_id:msg}
+  // 得到所有的lastMsg的数组,将对象形式转换为数组形式
+  const lastMsgs = Object.values(lastMsgObjs);
+  // console.log(lastMsgs);  [msg,...]
+  // 排序(按照create_time)降序排列
+  lastMsgs.sort(function (m1, m2) {
+    // 结果小于0，则m1在前
+    return m2.create_time - m1.create_time;
+  });
+  return lastMsgs;
+}
+```
+
+最后再显示该数量即可：
+
+```
+<Item
+  extra={<Badge text={msg.unReadCount} />} // 未读消息数量
+>
+```
+
+### 12.3.2 总的未读数量获取及显示
+
+总的未读消息我们使用 redux 实现，之前在 redux 中添加聊天状态 chat 时，为其初始化了一个 unReadCount 属性，所以需要修改 chat 纯函数：
+
+首先在接收到消息列表后，我们需要更新 unReadCount 属性，需要使用 reduce 方法，累加其中的发送给用户本人的并且 read 属性为 false 的消息。
+
+```
+case RECEIVE_Msg_LIST:
+  const { users, chatMsgs, userid } = action.data;
+  return {
+    users,
+    chatMsgs,
+    unReadCount: chatMsgs.reduce(
+      (preTotal, msg) =>
+        preTotal + (!msg.read && msg.to === userid ? 1 : 0),
+      0
+    ),
+  };
+```
+
+reduce 用法：`arr.reduce(callback,[initialValue])`
+
+    callback （执行数组中每个值的函数，包含四个参数）
+        1、previousValue （上一次调用回调返回的值，或者是提供的初始值（initialValue））
+        2、currentValue （数组中当前被处理的元素）
+        3、index （当前元素在数组中的索引）
+        4、array （调用 reduce 的数组）
+
+    initialValue （作为第一次调用 callback 的第一个参数。）
+
+需要注意的是：接收同步消息列表的 action 中返回的 data 中在之前的定义中不包含 userid,所以还需要修改接收同步消息列表的 action 以及它的异步调用
+
+```
+const receiveMsgList = ({ users, chatMsgs, userid }) => ({
+  type: RECEIVE_Msg_LIST,
+  data: { users, chatMsgs, userid },
+});
+
+// 异步获取消息列表数据
+async function getMsgList(userid, dispatch) {
+  initIO(userid, dispatch);
+  const response = await reqChatMsgList();
+  const result = response.data;
+  if (result.code === 0) {
+    const { users, chatMsgs } = result.data;
+    // 分发同步action
+    dispatch(receiveMsgList({ users, chatMsgs, userid }));
+  }
+}
+```
+
+接收到一个新消息时，因为我们这里定义的接收到一个消息，指的是不管是本人发给别人的，还是别人发给本人的，所以也需要判断该消息是否是发给我的以及它的 read 属性：
+
+```
+case RECEIVE_Msg: // data:chatMsg
+  const { chatMsg } = action.data;
+  return {
+    users: state.users,
+    chatMsgs: [...state.chatMsgs, chatMsg],
+    unReadCount:
+      state.unReadCount +
+      (!chatMsg.read && chatMsg.to === action.data.userid ? 1 : 0),
+  };
+```
+
+同样需要注意：接收同步消息的 action 中返回的 data 中在之前的定义中不包含 userid,所以还需要修改接收同步消息的 action 以及它的异步调用
+
+```
+// 接收到一个消息的同步action
+const receiveMsg = (chatMsg, userid) => ({
+  type: RECEIVE_Msg,
+  data: { chatMsg, userid },
+});
+
+function initIO(userid, dispatch) {
+  if (!io.socket) {
+    // 连接服务器,得到与服务器的连接对象 ws是协议，类似于http
+    io.socket = io("ws://localhost:4000");
+
+    // 接收来自服务器端的消息
+    io.socket.on("receiveMsg", function (chatMsg) {
+      console.log("接收来自服务器端的消息：", chatMsg);
+      // 只有当chatMsg是与当前用户相关的消息，才去分发同步action保存
+      if (userid === chatMsg.from || userid === chatMsg.to) {
+        dispatch(receiveMsg(chatMsg, userid));
+      }
+    });
+  }
+}
+```
+
+显示未读消息总数量：在`src/components/nav-footer/images/nav-footer.jsx`中,因为它是一个 UI 组件，所以不能通过 connect 传递属性，所以只能通过父组件传递给子组件的方式，所以我们先假定它从父组件接收到了一个 unReadCount 属性，然后可以通过判断当前的路径确定打开了消息列表，从而显示未读消息总数，如果当前路径不是'/message'，则不显示
+
+```
+static propTypes = {
+  navList: PropTypes.array.isRequired,
+  unReadCount: PropTypes.number.isRequired,
+};
+
+<Item
+  badge={nav.path === "/message" ? unReadCount : 0}
+></Item>
+```
+
+然后在`src/containers/main/main.jsx`中，通过 connect 接收 unReadCount 属性，然后传递给其子组件 NavFooter：
+
+```
+export default connect(
+  (state) => ({ user: state.user, unReadCount: state.chat.unReadCount }),
+  { getUser }
+)(Main);
+
+const { user, unReadCount } = this.props;
+
+<NavFooter navList={navList} unReadCount={unReadCount}></NavFooter>
+```
+
+### 12.3.3 更新未读消息的数量
+
+目前的状态：未读消息数量可以显示，但是当我们点击进入与某个用户的聊天界面又退出到消息列表(即查看了该消息)后，未读消息数量仍然没有消失，这需要进行更新，即当用户进入到与某个用户的聊天界面后，就发出请求，修改其组的未读消息数量以及总的未读消息数量
+
+#### 12.3.3.1 编写后台路由
+
+修改指定消息为已读，api 文档：
+
+    请求URL：localhost:4000/readmsg
+    请求方式：post
+    参数类型
+      	|参数		|是否必选 |类型     |说明
+      	|from       |Y       |string   |发送消息用户的id
+    返回示例：{code: 0, data: 2}   data中保存的是修改的消息的数量
+
+```
+/* 修改消息为已读:标记消息已读只能修改别人发给我的消息为已读，我发给别人的需要人家改 */
+
+router.post("/readmsg", function (req, res) {
+  // 得到请求中的 from 和 to
+  const from = req.body.from; // 给当前登录的用户发消息的用户
+  const to = req.cookies.userid; // 当前登录的用户
+  /*
+  更新数据库中的chat数据
+  */
+  ChatModel.update(
+    { from, to, read: false }, // 修改的条件：其他人发给当前用户的，并且消息显示未读的
+    { read: true }, // 将read属性修改为true
+    { multi: true }, // multi为true表示一次更新多条符合条件的信息
+    function (err, doc) {
+      res.send({ code: 0, data: doc.nModified }); // 返回更新的消息数量
+    }
+  );
+});
+```
+
+#### 12.3.3.2 编写前台请求
+
+在`src/api/index.js`中编写 ajax 请求的函数：
+
+```
+// 修改指定消息为已读
+export const reqReadMsg = (from) => ajax("/readmsg", { from }, "POST");
+```
+
+在 chat.jsx 中：现在假定发送异步请求的函数为 sendMsg
+
+```
+import { sendMsg, readMsg } from "../../redux/actions";
+
+componentDidMount() {
+  // 初始化显示列表，使滑动到与该用户收发的最新消息处
+  window.scrollTo(0, document.body.scrollHeight);
+
+  // 发请求更新未读消息的数量
+  const from = this.props.match.params.userid;
+  const to = this.props.user._id;
+  // 发送异步请求
+  this.props.readMsg(from, to);
+}
+
+export default connect((state) => ({ user: state.user, chat: state.chat }), {
+  sendMsg,
+  readMsg,
+})(Chat);
+```
+
+在`action-type.js`中：
+
+```
+// 读取了消息,查看过了
+export const MSG_READ = "msg_read";
+```
+
+在`action.js`中：
+
+```
+// 读取消息的同步action
+const msgRead = ({ count, from, to }) => ({
+  type: MSG_READ,
+  data: { count, from, to },
+});
+
+// 读取消息的异步action,更新未读消息数量
+export const readMsg = (from, to) => {
+  return async (dispatch) => {
+    const response = await reqReadMsg(from);
+    const result = response.data;
+    if (result.code === 0) {
+      const count = result.data; // 后台返回的
+      console.log(from, to, count, "dsdd");
+      dispatch(msgRead({ count, from, to }));
+    }
+  };
+};
+```
+
+在`reducers.js`中添加关于此请求的 case:
+
+```
+function chat(state = initChat, action) {
+  switch (action.type) {
+    case RECEIVE_Msg_LIST:
+      const { users, chatMsgs, userid } = action.data;
+      return {
+        users,
+        chatMsgs,
+        unReadCount: chatMsgs.reduce(
+          (preTotal, msg) =>
+            preTotal + (!msg.read && msg.to === userid ? 1 : 0),
+          0
+        ),
+      };
+    case RECEIVE_Msg: // data:chatMsg
+      const { chatMsg } = action.data;
+      return {
+        users: state.users,
+        chatMsgs: [...state.chatMsgs, chatMsg],
+        unReadCount:
+          state.unReadCount +
+          (!chatMsg.read && chatMsg.to === action.data.userid ? 1 : 0),
+      };
+// --------------关键代码start-----------------------------
+    case MSG_READ:
+      const { from, to, count } = action.data;
+      return {
+        users: state.users,
+        // 找到某些信息的read属性，将其修改为false
+        chatMsgs: state.chatMsgs.map((msg) => {
+          if (msg.from === from && msg.to === to && !msg.read) {
+            // 需要更新
+            return { ...msg, read: true, unReadCount: 0 };
+          } else {
+            // 不需要更新
+            return msg;
+          }
+        }),
+        unReadCount: state.unReadCount - count,
+      };
+// --------------关键代码end-----------------------------
+    default:
+      return state;
+  }
+}
+```
+
+## 12.4 给老板列表或者大神列表添加动画效果
+
+先安装一个包：`npm install --save rc-queue-anim`
+这个包是 antd-mobile 相关的，使用 Ant Motion 能够快速在 React 框架中使用动画。我们需要使用其中的进出场动画
+
+```
+// 引入包
+import QueueAnim from 'rc-queue-anim'
+
+// 使用QueueAnim组件将所有需要动画的内容包裹起来，例如message.jsx中，将所有列表项包裹起来：
+
+<List style={{ marginTop: 50, marginBottom: 50 }}>
+  <QueueAnim type="scaleX">
+    {lastMsgs.map((msg) => {
+      // 得到目标用户的id
+      const targetUserId = msg.to === user._id ? msg.from : msg.to;
+      const targetUser = users[targetUserId];
+      const unReadCount = msg.unReadCount;
+      console.log("unReadCount", unReadCount);
+      return (
+        <Item
+          key={msg._id}
+          extra={<Badge text={unReadCount} />} // 未读消息数量
+          thumb={
+            targetUser.header
+              ? require(`../../assets/images/${targetUser.header}.png`)
+              : null
+          } // 头像
+          arrow="horizontal"
+          onClick={() =>
+            this.props.history.push(`/chat/${targetUserId}`)
+          }
+        >
+          {msg.content}
+          <Brief>{targetUser.username}</Brief>
+        </Item>
+      );
+    })}
+  </QueueAnim>
+</List>
+```

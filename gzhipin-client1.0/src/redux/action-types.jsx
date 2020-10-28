@@ -17,3 +17,6 @@ export const RECEIVE_USER_LIST = "receive_user_list"; // 接收用户列表
 export const RECEIVE_Msg_LIST = "receive_msg_list";
 // 接收到一条消息
 export const RECEIVE_Msg = "receive_msg";
+
+// 读取了消息,查看过了
+export const MSG_READ = "msg_read";

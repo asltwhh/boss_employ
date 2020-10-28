@@ -20,6 +20,7 @@ import {
   RECEIVE_USER_LIST,
   RECEIVE_Msg_LIST,
   RECEIVE_Msg,
+  MSG_READ,
 } from "./action-types";
 
 import io from "socket.io-client";
@@ -30,9 +31,9 @@ import io from "socket.io-client";
    2 创建对象之后：保存socket对象在io对象中
 */
 // 接收到一个消息的同步action
-const receiveMsg = (chatMsg) => ({
+const receiveMsg = (chatMsg, userid) => ({
   type: RECEIVE_Msg,
-  data: chatMsg,
+  data: { chatMsg, userid },
 });
 
 function initIO(userid, dispatch) {
@@ -45,7 +46,7 @@ function initIO(userid, dispatch) {
       console.log("接收来自服务器端的消息：", chatMsg);
       // 只有当chatMsg是与当前用户相关的消息，才去分发同步action保存
       if (userid === chatMsg.from || userid === chatMsg.to) {
-        dispatch(receiveMsg(chatMsg));
+        dispatch(receiveMsg(chatMsg, userid));
       }
     });
   }
@@ -59,7 +60,7 @@ async function getMsgList(userid, dispatch) {
   if (result.code === 0) {
     const { users, chatMsgs } = result.data;
     // 分发同步action
-    dispatch(receiveMsgList({ users, chatMsgs }));
+    dispatch(receiveMsgList({ users, chatMsgs, userid }));
   }
 }
 
@@ -82,11 +83,10 @@ const receiveUser = (user) => ({ type: RECEIVE_USER, data: user });
 // 重置用户信息的同步action
 export const resetUser = (msg) => ({ type: RESET_USER, data: msg });
 // 接收消息列表的同步action
-const receiveMsgList = ({ users, chatMsgs }) => ({
+const receiveMsgList = ({ users, chatMsgs, userid }) => ({
   type: RECEIVE_Msg_LIST,
-  data: { users, chatMsgs },
+  data: { users, chatMsgs, userid },
 });
-
 // 获取用户列表的同步action
 const receiveUserList = (userList) => ({
   type: RECEIVE_USER_LIST,
@@ -208,6 +208,25 @@ export const getUserList = (type) => {
     // 分发一个同步action
     if (result.code === 0) {
       dispatch(receiveUserList(result.data));
+    }
+  };
+};
+
+// 读取消息的同步action
+const msgRead = ({ count, from, to }) => ({
+  type: MSG_READ,
+  data: { count, from, to },
+});
+
+// 读取消息的异步action,更新未读消息数量
+export const readMsg = (from, to) => {
+  return async (dispatch) => {
+    const response = await reqReadMsg(from);
+    const result = response.data;
+    if (result.code === 0) {
+      const count = result.data; // 后台返回的
+      console.log(from, to, count, "dsdd");
+      dispatch(msgRead({ count, from, to }));
     }
   };
 };

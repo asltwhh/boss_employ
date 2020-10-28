@@ -1,7 +1,8 @@
 import React from "react";
 import { connect } from "react-redux";
 import { NavBar, List, InputItem, Grid, Icon } from "antd-mobile";
-import { sendMsg } from "../../redux/actions";
+
+import { sendMsg, readMsg } from "../../redux/actions";
 
 const Item = List.Item;
 
@@ -51,6 +52,17 @@ class Chat extends React.Component {
   componentDidMount() {
     // 初始化显示列表，使滑动到与该用户收发的最新消息处
     window.scrollTo(0, document.body.scrollHeight);
+
+    // 发请求更新未读消息的数量
+    const from = this.props.match.params.userid;
+    const to = this.props.user._id;
+    this.props.readMsg(from, to);
+  }
+  componentWillUnmount() {
+    // 发请求更新未读消息的数量
+    const from = this.props.match.params.userid;
+    const to = this.props.user._id;
+    this.props.readMsg(from, to);
   }
   componentDidUpdate() {
     // 更新显示列表
@@ -176,4 +188,5 @@ class Chat extends React.Component {
 
 export default connect((state) => ({ user: state.user, chat: state.chat }), {
   sendMsg,
+  readMsg,
 })(Chat);

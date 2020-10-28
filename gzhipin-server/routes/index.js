@@ -217,7 +217,6 @@ router.post("/readmsg", function (req, res) {
     { read: true }, // 将read属性修改为true
     { multi: true }, // multi为true表示一次更新多条符合条件的信息
     function (err, doc) {
-      console.log("/readmsg", doc);
       res.send({ code: 0, data: doc.nModified }); // 返回更新的消息数量
     }
   );

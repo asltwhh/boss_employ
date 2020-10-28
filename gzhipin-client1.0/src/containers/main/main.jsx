@@ -82,7 +82,7 @@ class Main extends React.Component {
       (3) cookies中有userid 
       判断redux管理的user中是否有_id(有则说明打开浏览器界面时又登录了一次)
     */
-    const { user } = this.props;
+    const { user, unReadCount } = this.props;
     /* 
       在这个添加一个debugger,则在第一次渲染界面上就会出现断点
       如果我们之前登陆了，然后关闭了该页面(cookies中有userid)，再次打开访问根路径
@@ -150,13 +150,18 @@ class Main extends React.Component {
           ))}
           <Route path="./notfound" component={NotFound}></Route>
         </Switch>
-        {currentNav ? <NavFooter navList={navList}></NavFooter> : null}
+        {currentNav ? (
+          <NavFooter navList={navList} unReadCount={unReadCount}></NavFooter>
+        ) : null}
       </div>
     );
   }
 }
 
-export default connect((state) => ({ user: state.user }), { getUser })(Main);
+export default connect(
+  (state) => ({ user: state.user, unReadCount: state.chat.unReadCount }),
+  { getUser }
+)(Main);
 
 /* 
 1 实现自动登陆：

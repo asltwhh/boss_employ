@@ -7,11 +7,12 @@ const Item = TabBar.Item;
 class NavFooter extends React.Component {
   static propTypes = {
     navList: PropTypes.array.isRequired,
+    unReadCount: PropTypes.number.isRequired,
   };
 
   render() {
     //   需要显示的导航项
-    let { navList } = this.props;
+    let { navList, unReadCount } = this.props;
     // 过滤掉hide为true的nav
     navList = navList.filter((nav) => !nav.hide);
     // 获取当前请求的路径
@@ -22,6 +23,7 @@ class NavFooter extends React.Component {
           {navList.map((nav) => (
             <Item
               key={nav.path}
+              badge={nav.path === "/message" ? unReadCount : 0}
               title={nav.text}
               icon={{ uri: require(`./images/${nav.icon}.png`) }}
               selectedIcon={{

@@ -11,6 +11,7 @@ import {
   RECEIVE_USER_LIST,
   RECEIVE_Msg_LIST,
   RECEIVE_Msg,
+  MSG_READ,
 } from "./action-types";
 import { getRedirectTo } from "../utils/index";
 
@@ -64,14 +65,40 @@ const initChat = {
 function chat(state = initChat, action) {
   switch (action.type) {
     case RECEIVE_Msg_LIST:
-      const { users, chatMsgs } = action.data;
-      return { users, chatMsgs, unReadCount: 0 };
+      const { users, chatMsgs, userid } = action.data;
+      return {
+        users,
+        chatMsgs,
+        unReadCount: chatMsgs.reduce(
+          (preTotal, msg) =>
+            preTotal + (!msg.read && msg.to === userid ? 1 : 0),
+          0
+        ),
+      };
     case RECEIVE_Msg: // data:chatMsg
-      const chatMsg = action.data;
+      const { chatMsg } = action.data;
       return {
         users: state.users,
         chatMsgs: [...state.chatMsgs, chatMsg],
-        unReadCount: 0,
+        unReadCount:
+          state.unReadCount +
+          (!chatMsg.read && chatMsg.to === action.data.userid ? 1 : 0),
+      };
+    case MSG_READ:
+      const { from, to, count } = action.data;
+      return {
+        users: state.users,
+        // 找到某些信息的read属性，将其修改为false
+        chatMsgs: state.chatMsgs.map((msg) => {
+          if (msg.from === from && msg.to === to && !msg.read) {
+            // 需要更新
+            return { ...msg, read: true, unReadCount: 0 };
+          } else {
+            // 不需要更新
+            return msg;
+          }
+        }),
+        unReadCount: state.unReadCount - count,
       };
     default:
       return state;
