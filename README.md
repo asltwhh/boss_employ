@@ -1,3 +1,4 @@
+- 
 - [1 前台项目准备](#1-前台项目准备)
     - [1.1 项目描述](#11-项目描述)
     - [1.2 项目的功能界面](#12-项目的功能界面)
@@ -98,15 +99,29 @@
 ### 1.1 项目描述
 
 - (1) 这是一个前后台分离的招聘的 SPA 应用，包括前台应用和后台应用
+
 - (2) 包括用户注册、登录，大神列表、老板列表，实时聊天等模块
+
 - (3) 前端：使用 React+ES6+Webpack 等技术
+
 - (4) 后端：使用 Node+express+mongodb+socketIO 等技术
+
 - (5) 采用模块化、组件化、工程化的模式开发
+
+  ![技术选型](./img/32.png)
 
 ### 1.2 项目的功能界面
 
 ![01](./img/01.png)
 ![02](./img/01.png)
+
+前端路由：
+
+![前端路由](./img/33.png)
+
+可以看出，总共存在三级路由组件，第一级就是入口文件。第二级包含注册、登录和主界面三个路由组件，并且主界面的路径为'/',这个组件是入口文件的默认界面。第三级就是老板、大神主界面及消息列表等，拿老板主界面路由组件为例，其完整路径就是`http:localhost:3000/#/laoban`
+
+在入口文件中需要路由二级路由组件，在main中需要路由其他7个三级路由组件
 
 ### 1.3 项目打包
 
@@ -126,13 +141,62 @@
 },
 ```
 
-### 1.4 使用 antd-mobile 实现按需打包并且自定义 anti-mobile 主题颜色
+### 1.4 使用 antd-mobile 并且实现按需打包并且自定义 anti-mobile 主题颜色
 
 - 参考：https://www.jianshu.com/p/7097348cd900
 
 #### 1.4.1 准备工作
 
-- 首先需要下载一些依赖包：`babel-plugin-import react-app-rewired customize-cra`
+- 首先需要按照antd-mobile的要求，因为我们需要实现的是移动端的应用，故需要对于页面的meta进行设置
+
+- 另外，需要解决移动端点击事件的300ms延迟问题，三个办法
+
+  ```
+  300 毫秒延迟的主要原因是解决双击缩放(double tap to zoom)。双击缩放，顾名思义，即用手指在屏幕上快速点击两次，iOS 自带的 Safari 浏览器会将网页缩放至原始比例。
+  
+  如果页面内存在一个链接，当用户一次点击屏幕之后(还没来得及点击第二次或者没有想要点击第二次)，浏览器并不能立刻判断用户是确实要打开这个链接，还是想要进行双击操作。所以浏览器中手动点击和真正触发click事件之间存在300ms延迟，如果没有二次点击，则说明是打开链接
+  
+  在移动端的click事件可以拆解为：touchstart -> touchmove -> touchend -> click，浏览器在 touchend 之后会等待约 300ms ，如果没有再次点击行为，则触发 click 事件。 而浏览器等待约 300ms 的原因是，判断用户是否是双击行为，双击过程中就不适合触发 click 事件了。 由此可以看出 click 事件触发代表一轮触摸事件的结束。
+  
+  方法1： Chrome on Android (all versions)：直接关闭缩放,那双击缩放的功能就没有意义了，此时浏览器可以禁用默认的双击缩放行为并且去掉300ms的点击延迟。
+  <meta name="viewport" content="width=device-width, user-scalable=no"> 
+  或者：
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+  
+  方法2：对于Android版chrome 32+浏览器
+  <meta name="viewport" content="width=device-width">
+  因为双击缩放主要是用来改善桌面站点在移动端浏览体验的，而随着响应式设计的普及，很多站点都已经对移动端坐过适配和优化了，这个时候就不需要双击缩放了，如果能够识别出一个网站是响应式的网站，那么移动端浏览器就可以自动禁掉默认的双击缩放行为并且去掉300ms的点击延迟。
+  它没有完全禁用缩放，而只是禁用了浏览器默认的双击缩放行为，但用户仍然可以通过双指缩放操作来缩放页面。
+  
+  方法3：IE支持，其他浏览器支持不完善
+  	IE11: touch-action: manipulation; 去除某些元素上的双击缩放功能
+  	IE10：-ms-touch-action: manipulation.
+  
+  方法4：使用FastClick.js：除了解决300ms延迟外，还可以解决单击穿透问题
+  
+  FastClick 是 FT Labs 专门为解决移动端浏览器 300 毫秒点击延迟问题所开发的一个轻量级的库。FastClick的实现原理是在检测到touchend事件的时候，会通过DOM自定义事件立即触发模拟一个click事件，并把浏览器在300ms之后的click事件阻止掉。
+  ```
+
+  
+
+```
+// width=device-width  视口宽度 = 设备的可见区域宽度
+// initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no 禁止缩放
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+  <script src="https://as.alipayobjects.com/g/component/fastclick/1.0.6/fastclick.js"></script>
+  <script>
+    if ('addEventListener' in document) {
+      document.addEventListener('DOMContentLoaded', function() {
+        FastClick.attach(document.body);
+      }, false);
+    }
+    if(!window.Promise) {
+      document.writeln('<script src="https://as.alipayobjects.com/g/component/es6-promise/3.2.2/es6-promise.min.js"'+'>'+'<'+'/'+'script>');
+    }
+  </script>
+```
+
+- 其次需要下载一些依赖包：`babel-plugin-import react-app-rewired customize-cra`
 
 ```
 npm install --save-dev babel-plugin-import react-app-rewired customize-cra
@@ -149,7 +213,7 @@ npm install --save-dev babel-plugin-import react-app-rewired customize-cra
 }
 ```
 
-- 然后在项目根目录下创建一个`config.overrides.js`，用于修改默认配置
+- 然后在项目根目录下创建一个`config-overrides.js`，用于修改默认配置
 
 ```
 module.exports = function override(config, env) {
@@ -195,8 +259,8 @@ module.exports = override(
     addLessLoader({
       javascriptEnabled: true,
       modifyVars: {
-        "@brand-primary": "#ff5722", //平常的颜色
-        "@brand-primary-tap": "#ffccbc",  // 按下时的颜色
+        "@brand-primary": "#1cae82", // 正常
+     	"@brand-primary-tap": "#1DA57A", // 按下
         "@color-text-base-inverse": "#3f51b5"  // 字体的颜色
       },
     }),
@@ -215,13 +279,19 @@ module.exports = override(
 
 先创建 register,login,main 组件
 
-    首先下载依赖包：`npm install react-router-dom --save`
-    定义路由组件：
-      一般路由组件均会与 redux 进行交互，所以会将路由组件放在 containers 中
-      创建三个空的一级路由组件：注册界面，登录界面，主界面(老板列表/大神列表)
-      在入口文件中引入相关的路由组件，实现初始化
+	- main组件是整个应用的主页面
+	- register是注册界面
+	- login是登录界面
+	
+	首先下载依赖包：`npm install react-router-dom --save`
+	定义路由组件：
+	  一般路由组件均会与 redux 进行交互，所以会将路由组件放在 containers 中
+	  创建三个空的一级路由组件：注册界面，登录界面，主界面(老板列表/大神列表)
+	  在入口文件中引入相关的路由组件，实现初始化
 
 ![03](./img/03.png)
+
+创建注册和登录组件的路由组件：
 
 ```
 // 入口js文件:src/index.js
@@ -256,6 +326,7 @@ ReactDOM.render(
   - react-redux 负责减小耦合，提供了 Provider 组件和 connect 连接器
   - redux-thunk 在 redux 中实现异步任务
   - redux-devtools-extension 是 redux 调试工具
+  - 还需要在浏览器中添加`redux-devtools`插件
 
 ```
 // 注意：redux不能下载最新版本
@@ -348,9 +419,77 @@ ReactDOM.render(
 
 ## 2.3 实现登录和注册操作的页面
 
-### 2.3.1 静态注册界面的实现
+### 2.3.1 Logo组件
+
+Logo是一个普通组件，所以直接放在components中即可
+
+```
+import React, { Component } from 'react'
+
+import logo from './logo.png'
+import './logo.less'
+
+export default class Logo extends Component {
+    render() {
+        return (
+            <div className='logo-container'>
+                <img src={logo} alt='logo' className='logo-img' />
+            </div>
+        )
+    }
+}
+
+```
+
+样式如下
+
+```
+.logo-container {
+    text-align: center;
+    margin:10px 0;
+    .logo-img {
+        width: 240px;
+        height: 240px;
+    }
+}
+```
+
+
+
+### 2.3.2 静态注册界面的实现
 
 - 界面比较简单，基本的组件都是由 antd-mobile 提供的，可以去官网查看每个组件的具体用法，都比较简单
+
+第一步：
+
+```
+import React, { Component } from "react";
+import {NavBar, WingBlank,List,InputItem, Radio} from 'antd-mobile'
+
+import Logo from '../../components/logo'
+const ListItem = List.Item;
+
+export default class Register extends Component {
+  render() {
+    return <div>
+      <NavBar>硅&nbsp;谷&nbsp;直&nbsp;聘</NavBar>
+      <Logo></Logo>
+      <WingBlank>
+        <List>
+         <InputItem placeholder='请输入用户名：'>用户名：</InputItem>
+         <InputItem placeholder='请输入密码：'>密&nbsp;码:</InputItem>
+         <InputItem placeholder='确认密码'>确认密码：</InputItem>
+         <ListItem>
+           用户类型：<Radio>大神</Radio>&nbsp;&nbsp;&nbsp;<Radio>老板</Radio>
+         </ListItem>
+        </List>
+      </WingBlank>
+    </div>;
+  }
+}
+```
+
+第二步：添加状态和事件
 
 ```
 /*
@@ -402,8 +541,8 @@ export default class Register extends React.Component{
                         <InputItem placeholder='请再次输入密码进行确认' type='password' onChange={value => {this.handleChange('password2',value)}}>确认密码：</InputItem>
                         <ListItem>
                             <span>用户类型：</span>&nbsp;&nbsp;&nbsp;
-                            <Radio checkd={type==='dashen'} onChange={()=>this.handleChange('type','dashen')}>大神</Radio>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                            <Radio checkd={type==='laoban'} onChange={()=>this.handleChange('type','laoban')}>老板</Radio>
+                            <Radio checked={type==='dashen'} onChange={()=>this.handleChange('type','dashen')}>大神</Radio>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                            <Radio checked={type==='laoban'} onChange={()=>this.handleChange('type','laoban')}>老板</Radio>
                         </ListItem>
                         <Button type='primary' onClick={this.register}>注&nbsp;&nbsp;&nbsp;册</Button>
                         <Button onClick={this.toLogin}>已有账户</Button>
@@ -415,7 +554,37 @@ export default class Register extends React.Component{
 }
 ```
 
-### 2.3.2 实现静态登录界面
+### 2.3.3 实现静态登录界面
+
+第一步：
+
+```
+import React, { Component } from "react";
+import {NavBar, WingBlank,List,InputItem, Radio, Button} from 'antd-mobile'
+
+import Logo from '../../components/logo'
+const ListItem = List.Item;
+
+export default class Login extends Component {
+  render() {
+    return <div>
+      <NavBar>硅&nbsp;谷&nbsp;直&nbsp;聘</NavBar>
+      <Logo></Logo>
+      <WingBlank>
+        <List>
+         <InputItem placeholder='请输入用户名：'>用户名：</InputItem>
+         <InputItem placeholder='请输入密码：'>密&nbsp;码:</InputItem>
+         <Button type='primary'>登&nbsp;录</Button>
+         <Button>还没有账户?</Button>
+        </List>
+      </WingBlank>
+    </div>;
+  }
+}
+
+```
+
+第二步：初始化状态并且定义事件
 
 ```
 /*
@@ -699,6 +868,8 @@ exports.UserModel = UserModel;
 
 ## 5.2 定义用户注册的响应路由：
 
+注意：我们在注册和登录成功的环节加入了cookie，保存用户的登录信息，这样在maxAge的时间内就可以实现免登录
+
 在`routes-->index.js`中修改注册路由：
 
 ```
@@ -723,7 +894,8 @@ router.post('/register',function(req,res){
         // 密码的保存不能以明文的方式，需要加密
         var userModle = new UserModel({username,password:md5(password),type});
         userModle.save(function(err,userdox){
-          // 生成一个cookie，1000表示1秒钟，1000*60*60*24*7表示7天
+          // 生成一个cookie,并交给浏览器，这样我们在登录完成后，在1天内再次打开该网页，就可以实现免登录
+       	  // 1000表示1秒钟，1000*60*60*24表示1天,此条cookie信息在浏览器中保存的时间
           res.cookie("userid",userdox.id,{maxAge:1000*60*60*24*7});  //
           //返回包含user的json数据
           // 响应数据中不要携带密码，所以自己先封装一个对象
@@ -740,8 +912,9 @@ router.post('/register',function(req,res){
 
     先注册一个新用户，发送请求，然后再次发送请求，会返回{code:1, msg:'用户已经注册'}
     这就表明成功
+    注意：新用户需要同时输入username,password,type这三个信息才可以注册成功，因为在文档的规范中这三个是必须的required
 
-![10](./img/10.png)
+![10](C:/Users/Administrator/Documents/tencent files/1727336114/filerecv/mobilefile/img/10.png)
 
 ## 5.3 定义用户登录的响应路由：
 
@@ -754,14 +927,15 @@ router.post('/login',function(req,res){
   const {username,password} = req.body;
   // 处理
     // 根据username和password查询，没有则用户不存在，提示错误信息，有则返回登陆成功的信息
-    const filter = {password:0,_v:0};  // 或者'-password -_v' 返回的userdox中不包含password
+    const filter = {password:0,_v:0}; 
+    // 过滤掉filter中的信息，返回的userdox中不应该包含密码，另外，其他不想要的信息也可以过滤掉
   UserModel.findOne({username,password:md5(password)},filter,function(err,userdox){
     if(userdox){
       // 登陆成功
       // 生成一个cookie，1000表示1秒钟，1000*60*60*24*7表示7天
       res.cookie("userid",userdox.id,{maxAge:1000*60*60*24*7});
       // 返回登陆成功的信息
-      res.send({code:0,data:userdox})
+      res.send({code:0,data:userdox})  // 这里返回的数据中就不会包含filter中的内容了
     }else{
       res.send({code:1,msg:'用户名或者密码不正确'})
     }
@@ -785,8 +959,10 @@ router.post('/login',function(req,res){
 // 能发送ajax请求的函数模块
 import axios from 'axios'
 export default function ajax(url,data={},method='GET'){
+	
     if(method === "GET"){
-        // {username:tom,password:123}
+    	// get请求方法的url:原始url?key1=value1&key2=value2
+        // data的格式：{username:tom,password:123}
         // paramStr: username=tom&password=123
         let paramStr = '';
         Object.keys(data).forEach(key => {
@@ -798,7 +974,8 @@ export default function ajax(url,data={},method='GET'){
         // 使用axios发送get请求
         return axios.get(url+'?'+paramStr);
     }else{
-        axios.post(url,data);
+    	// post方法
+        return axios.post(url,data);
     }
 }
 ```
@@ -824,7 +1001,26 @@ export const reqLogin = ({username, password}) => ajax('/login',{username, passw
     (3) reducer 根据旧的 state 和 action 对象产生新的 state,可以有多个小的 reducers,每个 reducers 分别独立地操作 state tree 的不同部分
     (4) store 对象负责更新 state,并且由于容器组件将 state 作为 props 传递给了展示组件 Register,所以 state 更新后，展示组件就会渲染更新的部分
 
-先确定需要使用的 action 行为名称，在`action-type.js`:保存 action 对象的名称类型，是干什么事的
+首先确定我们需要管理的状态及其形式，由于用户在注册和登录时会输入自己的信息，这些信息都需要保存到后台中，后台响应后会将部分信息返回到前台实现状态管理，所以就存在一个状态user,并且
+
+```
+user的结构：  不需要有password，因为密码不会返回
+
+import {combineReducers} from 'redux'
+
+const initUser = {
+	username:'', // 用户名
+	type:'',  //用户类型dashen  laoban
+	msg:''  // 错误提示信息
+}
+const user = (state = initUser,action) => {
+    return state;
+}
+
+export default combineReducers({user});
+```
+
+确定需要使用的 action 行为名称，在`action-type.js`:保存 action 对象的名称类型，是干什么事的
 
 ```
 // 用户注册成功或者登陆成功时需要dispatch的内容
@@ -877,7 +1073,7 @@ export const register = (user) => {
         */
         const response = await reqRegister({username,password,type});
         const result = response.data;
-
+        // result两种形式:{code:0,data},{code:1,msg}
         // 根据发送ajax请求后，响应报文的设定，code:0表示注册成功，用户信息已经添加到数据库中
         // code:1表示该用户已经注册过或者必须需要填写的项没有填写
         if(result.code === 0){
@@ -906,7 +1102,7 @@ export const login = (user) => {
         // 还需要再then再得到response
         // 但是一旦某个语句使用了await,就需要在其前面添加async
         /*
-        const promise = reqRegister(user);
+        const promise = reqLogin(user);
         promise.then(response => {
             const result = response.data;  {code:0/1,data:user,msg:''}
         })
@@ -939,12 +1135,11 @@ const initUser = {
     username: '',   // 用户名
     type: '',   //用户类型
     msg: '',   // 存放错误提示信息
-    redirectTo:''  //需要自动重定向的路由路径
 }
 function user(state=initUser, action){
     switch (action.type){
         case AUTH_SUCCESS:   //data存放user
-            return {...state, ...action.data,redirectTo:'/'};
+            return {...state, ...action.data};
         case ERROR_MSG:   // data存放msg
             return {...state, msg:action.data};
         default:
@@ -967,6 +1162,7 @@ export default combineReducers({
 
 ```
 import {connect} from 'react-redux'
+import { register } from "../../redux/action";
 
 class Register extends React.components{
 
@@ -991,7 +1187,80 @@ export default connect(
 
     解决办法：加入代理
       在 package.json 中添加"proxy": "http://localhost:4000"
-    原理：前台应用 3000，添加一个代理服务器帮忙将请求转发到另一个端口实现请求
+    原理：前台应用 3000，添加一个代理服务器帮忙将请求转发到另一个端口实现请求,我们并不是向代理服务器发送请求，而是让它帮忙转发请求，起到桥梁的作用
+
+## 6.4 提示错误信息
+
+在注册界面，如果注册失败或者该用户已经注册，则在后台会返回一个msg,在定义reducers中，我们初始化state时存了一个msg,则它会直接传递给Register组件，所以为了将错误信息直接显示在Register组件的页面中，需要下面的修改：
+
+```
+class Register extends React.Component {
+  render() {
+    const { msg } = this.props.user;
+    return (
+        <div>
+        	...
+            <List>
+              {msg ? <div className="error-msg">{msg}</div> : null}
+              ...
+            </List>
+          </WingBlank>
+        </div>
+      );
+  }
+```
+
+并且在`src/assets/css/index.less`中为其添加样式，并且在客户端的入口文件中引入：
+
+```
+.error-msg {
+  color: red;
+  text-align: center;
+  font-size: 18px;
+}
+```
+
+## 6.5 重定向的问题
+
+我们在完成注册界面的信息，点击注册按钮后，还需要实现页面的跳转，跳转到用户的信息完善界面，这时候就需要记录一个redirectTo,检测到用户注册成功后，就跳转界面，所以这个变量应该保存在reducers中的state中,并且只在注册成功的时候跳转
+
+```
+const initUser = {
+  username: "", // 用户名
+  type: "", //用户类型
+  msg: "", // 存放错误提示信息
+  redirectTo: "",
+};
+function user(state = initUser, action) {
+  switch (action.type) {
+    case AUTH_SUCCESS: //data存放user
+      return { ...state, ...action.data, redirectTo: "/" };
+    case ERROR_MSG: // data存放msg
+      return { ...state, msg: action.data };
+    default:
+      return state;
+  }
+}
+```
+
+则就需要在注册界面对于该信息进行接收，并且判断，如果redirectTo为空，则表示注册未成功，则显示注册界面，如果为空，则需要跳转界面
+
+```
+import { Redirect } from "react-router-dom";
+
+class Register extends React.Component {
+  render() {
+    const { redirectTo } = this.props.user;
+    if (redirectTo !== "") {
+      return <Redirect to={redirectTo}></Redirect>;
+    } else {
+      return (...);
+    }
+  }
+}
+```
+
+
 
 # 7 完成用户的信息完善界面
 
@@ -1000,11 +1269,41 @@ export default connect(
 
 ## 7.1 完成组件的静态页面
 
+**需要注意：大神信息和老板信息路由组件的路径均是相对于Main组件而言的，而Main组件在客户端的入口文件中的相对路径是/,所以这两个路由组件的路径就变成了`http:localhost:3000/#/laobaninfo`**
+
+首先需要实现两个主界面的路由组件，在`src/containers/main/main.jsx`中：
+
+```
+import React, { Component } from "react";
+import {Switch,Route} from 'react-router-dom'
+
+import MasterInfo from '../masterInfo'
+import BossInfo from '../bossInfo'
+
+// 主界面的路由组件
+export default class Main extends Component {
+  render() {
+    return <div>
+      <Switch>
+        <Route path='/masterinfo' component={MasterInfo}></Route>
+        <Route path='/bossinfo' component={BossInfo}></Route>
+      </Switch>
+    </div>
+  }
+}
+```
+
+并且测试两个界面能否正确显示：http://localhost:3000/#/masterinfo
+
+下面的工作就是完成两个路由组件的静态页面：
+
 观察两个组件可以发现具有相同的一部分，头像选择部分的形式相同，所以可以将这一部分单独拎出来作为一个 UI 组件:headerSelector:
 
 ### 7.1.1 头像部分单独作为一个 UI 组件
 
 在`src/components/header-selector/header-selector.jsx`中：
+
+这一块主要需要了解antd-mobile中Grid标签的使用方法及在代码内容引入资源的require用法
 
 ```
 import React from "react";
@@ -1030,15 +1329,21 @@ export default class HeaderSelector extends React.Component {
     const listHeader = "请选择头像";
     return (
       <div>
-        <list renderHeader={() => listHeader}>
+        <List renderHeader={() => listHeader}>
           {/* columnNum 指定Grid的列数 */}
           <Grid data={this.headerList} columnNum={5}></Grid>
-        </list>
+        </List>
       </div>
     );
   }
 }
 ```
+
+存在问题：不知道为啥，头像图片不能正确显示
+
+![显示结果](./img/35.png)
+
+![问题](./img/36.png)
 
 ### 7.1.2 老板信息完善页面的静态实现
 
@@ -1054,20 +1359,26 @@ import { NavBar, InputItem, TextareaItem, Button } from "antd-mobile";
 import HeaderSelector from "../../components/header-selector/header-selector";
 
 class LaobanInfo extends React.Component {
+  handleChange = (name,value) => {
+    this.setState({[name]:value});
+  }
+  save = () => {
+    console.log(this.state);
+  };
   render() {
     return (
       <div>
         <NavBar>老板信息完善</NavBar>
         <HeaderSelector></HeaderSelector>
-        <InputItem placeholder="请输入职位">招聘职位：</InputItem>
-        <InputItem placeholder="请输入公司名称">公司名称：</InputItem>
-        <InputItem placeholder="请输入该职位的薪资">职位薪资：</InputItem>
+        <InputItem placeholder="请输入职位" onChange={(value)=>{this.handleChange('post',value)}}>招聘职位：</InputItem>
+        <InputItem placeholder="请输入公司名称" onChange={(value)=>{this.handleChange('company',value)}}>公司名称：</InputItem>
+        <InputItem placeholder="请输入该职位的薪资" onChange={(value)=>{this.handleChange('salary',value)}}>职位薪资：</InputItem>
         <TextareaItem
           title="职位要求："
           rows={3}
           placeholder="请输入该职位的要求"
-        />
-        <Button type="primary">保&nbsp;&nbsp;&nbsp;存</Button>
+         onChange={(value)=>{this.handleChange('info',value)}}/>
+        <Button type="primary" onClick={this.save}>保&nbsp;&nbsp;&nbsp;存</Button>
       </div>
     );
   }
@@ -1090,18 +1401,24 @@ import { NavBar, InputItem, TextareaItem, Button } from "antd-mobile";
 import HeaderSelector from "../../components/header-selector/header-selector";
 
 class DashenInfo extends React.Component {
+    handleChange = (name,value) => {
+        this.setState({[name]:value});
+    }
+    save = () => {
+        console.log(this.state);
+    };
   render() {
     return (
       <div>
         <NavBar>大神信息完善</NavBar>
         <HeaderSelector></HeaderSelector>
-        <InputItem placeholder="请输入理想职位">应聘职位：</InputItem>
+        <InputItem placeholder="请输入理想职位" onChange={(value)=>{this.handleChange('post',value)}}>应聘职位：</InputItem>
         <TextareaItem
           title="个人介绍："
           rows={3}
           placeholder="请简单介绍自己"
-        />
-        <Button type="primary">保&nbsp;&nbsp;&nbsp;存</Button>
+         onChange={(value)=>{this.handleChange('info',value)}}/>
+        <Button type="primary" onClick={this.save}>保&nbsp;&nbsp;&nbsp;存</Button>
       </div>
     );
   }
@@ -1110,6 +1427,8 @@ class DashenInfo extends React.Component {
 export default connect((state) => ({}), {})(DashenInfo);
 ```
 
+
+
 ## 7.2 动态交互
 
 ### 7.2.1 数据收集
@@ -1117,14 +1436,83 @@ export default connect((state) => ({}), {})(DashenInfo);
 分析：
 老板信息收集主要有 5 个部分：老板的头像、提供的职位、公司、薪资、职位要求
 
-    onChange事件将这些数据更新到LaobanInfo组件的state中
-    有一个问题：设置头像
-      在Grid中有一个事件点击onClick函数,点击某个头像就会给其onClick函数传入两个参数：text,icon,这两个参数就是设置头像需要使用的
+    在Grid中有一个事件点击onClick函数,点击某个头像就会给其onClick函数传入两个参数：text,icon,这两个参数就是设置头像需要使用的
       但是我们的头像文本header保存在父组件LaobanInfo中，如果我们想要在子组件HeaderSelector中修改父组件的state属性，就应该在父组件中定义一个函数setHeader进行修改，然后将该函数传递给子组件
-
+    
       在HeaderSelector组件中，由于点击某个头像之后，显示的文本会从"请选择头像"变为"已选择头像"，所以需要设置一个state属性去判断，该state={icon:null},icon是一个图片对象，点击了某个头像后，就会更新该组件的state，此时icon就变成了一个有内容的对象，通过判断icon是否有内容，就可以选择是显示"请选择头像"，还是显示"已选择头像icon"
-
+    
       在点击了某个头像并且更新了icon后，还需要更新父组件的状态中的header属性,就可以调用父组件传过来的setHeader(text)。
+
+header-selector:
+
+```
+export default class HeadSelector extends Component {
+    state = {
+        icon:null
+    }
+    
+    handleClick = ({text,icon}) => {
+        this.setState({icon})
+        this.props.setHeader(text)
+    }
+    render() {
+        const {icon} = this.state;
+        const listheader = icon ? <div>已选择头像：<img alt='头像' src={icon} /></div>:'请选择头像:';
+        return (
+            <div>
+                <List renderHeader={()=>listheader}>
+                    <Grid data={this.headerList} columnNum={5} onClick={this.handleClick}></Grid>
+                </List>
+            </div>
+        )
+    }
+}
+```
+
+laobaninfo:
+
+```
+class LaobanInfo extends Component {
+    state = {
+        header:'',
+        position:'',
+        info:'',
+        company:'',
+        salary:''
+    }
+    setHeader = (header) => {
+        this.setState({header})
+    }
+    render() {
+    	...
+    }
+}
+
+export default connect((state)=>({}),{})(LaobanInfo);
+```
+
+dasheninfo:
+
+```
+class DashenInfo extends Component {
+    state = {
+        header:'',
+        post:'',
+        info:''
+    }
+    
+    setHeader = (header) => {
+        this.setState({header})
+    }
+    render() {
+    	...
+    }
+}
+
+export default connect((state)=>({}),{})(DashenInfo);
+```
+
+### 7.2.2 **动态计算跳转路径：**
 
 之前定义了一个 redirectTo 属性，用于在注册/登录成功之后跳转页面，但是目前我们都是写定的'/',即它在注册/登录成功之后都会直接跳转到主页面 main,但是现在添加了信息完善功能，在注册成功之后还需要进行信息的完善，所以需要修改它:src/utils/index.js
 
@@ -1196,9 +1584,16 @@ function user(state = initUser, action) {
 
 所以才会导致登录之后也会进入到用户信息完善界面
 
-### 7.2.2 前后台交互
+### 7.2.3 前后台交互
 
 后台：routes/index.js
+
+```
+这是用户完善用户信息的，所以传入的参数有：
+header,position,company,salary,info
+```
+
+
 
 ```
 // 更新用户信息：完善信息的路由
@@ -1227,7 +1622,7 @@ router.post("/update", function (req, res) {
       // 响应的数据中不能包含密码，所以先在oldUser中取出username, type, _id
       const { username, type, _id } = oldUser;
       const data = Object.assign(req.body, { username, type, _id });
-      return res.send({ code: 0, data: data });
+      return res.send({ code: 0, data });
     }
   });
 });
@@ -1235,55 +1630,175 @@ router.post("/update", function (req, res) {
 
 前台：
 
-    首先定义发送ajax请求的函数
-    然后创建发送异步请求的action creator,分两种情况讨论：
-        1 更新信息成功，则发布同步action,更新store中的state中的user信息
-        2 更新信息失败，则发布同步action,更新store中的state中的msg
-    在老板信息完善界面：
-        1 将action creator通过connect传入LaobanInfo组件的props中，更新保存按钮的点击函数
-        2 将store中的state中的user信息传递给LaobanInfo组件的props中，一旦发现信息已经完善，则直接跳转到老板主界面
-    在大神信息完善界面同理
-    存在一种特殊情况：在注册或者登陆完成之后，如果cookies的信息被恶意删除或者破坏，则需要将页面重新转入登陆界面，请用户重新登陆，这个功能需要在main.jsx中实现
+1：定义更新用户信息的ajax接口函数
+
+```
+// 完善用户信息接口
+export const reqUpdateUser = (user) => ajax("/update", user, "POST");
+```
+
+2 : 然后创建发送异步请求的action creator,分两种情况讨论：
+    1 更新信息成功，则发布同步action,更新store中的state中的user信息
+    2 更新信息失败，则发布同步action,更新store中的state中的msg
+
+```
+./action-types
+export const RECIEVE_USER = "recieve_user";
+export const RESET_USER = "reset_user";
+
+./actions
+// 完善用户信息的同步action'
+const recieveUser = (user) => ({ type: RECIEVE_USER, data: user });
+// 重置用户的同步action
+const resetUser = (user) => ({ type: RESET_USER, data: user });
+// 完善用户信息的异步action
+export const updateUser = function (user) {
+  return async (dispatch) => {
+    const response = await reqUpdateUser(user);
+    const result = response.data; // {code:0,data}  // {code:1.msg}
+    if (result.code === 0) {
+      // data:{username,type,_id,header,company,salary,info,position}
+      // 成功,分发授权成功的同步action
+      dispatch(recieveUser(result.data));
+    } else {
+      // 失败,分发提示错误信息的同步action
+      dispatch(resetUser(result.msg)); 
+    }
+  };
+};
+
+./reducers
+case RECIEVE_USER:
+  // 先不设置路径跳转
+  return action.data;
+case RESET_USER:
+  // 前台cookie信息异常，需要清理掉，直接返回错误信息即可
+  return { ...initUser, msg: action.data };
+```
+
+在老板信息完善界面：
+    1 将action creator通过connect传入LaobanInfo组件的props中，更新保存按钮的点击函数
+    2 将store中的state中的user信息传递给LaobanInfo组件的props中，一旦发现信息已经完善，则直接跳转到老板主界面
+在大神信息完善界面同理
+
+    ./laobaninfo
+    /*
+    老板信息完善的路由容器组件
+    */
+    
+    import { Redirect } from "react-router-dom";
+    import { updateUser } from "../../redux/actions";
+    class LaobanInfo extends React.Component {
+      
+      save = () => {
+        this.props.updateUser(this.state);
+      };
+      
+      render() {
+      	// 如果信息已经完善，则自动重定向到对应的主界面
+        const { header, type } = this.props.user;
+        if (header) {
+          const path = type === "dashen" ? "/dashen" : "/laoban";
+          return <Redirect to={path}></Redirect>;
+        }
+        return (
+         ...
+        );
+      }
+    }
+    
+    export default connect((state) => ({ user: state.user }), { updateUser })(
+      LaobanInfo
+    );
+
+
+在大神信息完善界面同理：
+
+```
+/*
+大神信息完善的路由容器组件
+*/
+
+import { Redirect } from "react-router-dom";
+import { updateUser } from "../../redux/actions";
+
+class DashenInfo extends React.Component {
+  save = () => {
+    updateUser(this.state);
+  };
+  render() {
+    const { header, type } = this.props.user;
+    if (header) {
+      const path = type === "dashen" ? "/dashen" : "/laoban";
+      return <Redirect to={path}></Redirect>;
+    }
+    return (
+    	...
+    );
+  }
+}
+
+export default connect((state) => ({ user: state.user }), { updateUser })(
+  DashenInfo
+);
+
+```
+
+### 7.2.4 cookie遭到恶意删除后页面跳转
+
+存在一种特殊情况：在注册或者登陆完成之后跳转到信息完善界面，如果此时cookies的信息被恶意删除或者破坏，则在输入了完善信息后点击保存按钮时需要将页面重新转入登陆界面，请用户重新登陆，这个功能需要在main.jsx中实现：
+
+```
+import { Switch, Route, Redirect } from "react-router-dom";
+import { connect } from "react-redux";
+
+class Main extends Component {
+  render() {
+    // 检查用户是否登陆，如果没有自动重定向到登录界面
+    const userid = this.props.user._id;
+    if (!userid) {
+      return <Redirect to="/login"></Redirect>;
+    }
+    return (
+      ...
+    );
+  }
+}
+
+export default connect((state) => ({ user: state.user }))(Main);
+```
+
+当这个实现后，在最初始我们加载`http://localhost:3000`时，也会直接跳转到login界面
 
 # 8 主界面
 
 ## 8.1 实现自动登陆
 
-实现自动登陆：
+当浏览器中存在cookies信息，则当我们打开网页：`http://localhost:3000`则可以自动登录并且重定向到当前用户的主界面，即laoban或者dashen主界面
+
+### 8.1.1 实现自动登陆：
 
     安装js-cookie包：npm install js-cookie --save
-    在 componentDidMount()中实现：
-        (1) 登陆过，但是关掉了该窗口(cookies 中有 userid)，之后再打开没有再次登录(redux 管理的 user 中没有\_id)，发送请求获取对应的用户信息
-    在 render()中实现：
+    1.在 componentDidMount()中实现：
+        (1) 登陆过，但是关掉了该窗口(cookies 中有 userid)，之后再打开没有再次登录(redux 管理的 user 中没有_id)，发送请求获取对应的用户信息
+    2.在 render()中实现：
         (2) cookies 中没有 userid(之前没有登录，或者登陆了也注销了) 自动进入 login 界面
-        (3) cookies 中有 userid：判断 redux 管理的 user 中是否有\_id：
-           1：没有暂时不做任何显示(因为我们需要在 componentDidMount 中发送请求)
-           2：有说明当前已经登陆，则显示对应的界面(请求的路径)
-           如果请求根路径，会根据 user 的 header 和 type 计算得到一个重定向的路径，
+        (3) cookies 中有 userid：判断 redux 管理的 user 中是否有_id：
+           3.1：没有暂时不做任何显示(因为我们需要在 componentDidMount 中发送请求)
+           3.2：有说明再打开又登录了一次，则显示对应的界面(请求的路径)
+           		3.2.1 如果请求根路径，会根据 user 的 header 和 type 计算得到一个重定向的路径，
            并且自动重定向
+           		3.2.2 如果请求的是其他路径，则根据路由显示
 
 在 src/main/main.jsx 中，先完成除了(1)之外的其余步骤：
 
 ```
-import React from "react";
-import { Switch, Route, Redirect } from "react-router-dom";
-import { connect } from "react-redux";
 import Cookies from "js-cookie"; //可以操作前端cookie的对象 set()/remove()
-
-import LaobanInfo from "../laoban-info/laoban-info";
-import DashenInfo from "../dashen-info/dashen-info";
-import { getRedirectTo } from "../../utils";
-import { getUser } from "../../redux/actions";
 
 class Main extends React.Component {
 
-  // -----------------关键代码start---------------------
   componentDidMount() {
-    /* 实现异步过程 */
-    console.log("componentDidMount()执行啦");
-
-    // (1) 登陆过，但是关掉了该窗口(cookies中有userid)，
-    // 之后再打开没有再次登录(redux管理的user中没有_id)
+    // (1) 
     const userid = Cookies.get("userid");
     const { _id } = this.props.user;
     if (userid && !_id) {
@@ -1292,11 +1807,8 @@ class Main extends React.Component {
       // 这部分需要先在后台写ajax响应，在前台写发送ajax的方法，以及在redux中调用该方法，dispatch对应的action实现
     }
   }
-  // -----------------关键代码end---------------------
 
   render() {
-
-    // -----------------关键代码start---------------------
 
     /* (2) cookies中没有userid,则直接重定向到登录界面 */
     // 读取cookies中的userid
@@ -1312,21 +1824,14 @@ class Main extends React.Component {
     */
     const { user } = this.props;
     /*
-      在这个添加一个debugger,则在第一次渲染界面上就会出现断点
-      如果我们之前登陆了，然后关闭了该页面(cookies中有userid)，再次打开访问根路径
-          则会自动根据type和header重导向到laobaninfo/daseninfo/laoban/dashen
-      然后刷新一下界面，则会出现redux没有使用的状态，这是因为还没有dispatch任何的action
-          所以redux还没有使用
-      刷新页面之后，会自动pause，此时cookies中有userid,但是user中没有_id
-      点击下一步：就会进入return null的步骤
-      然后再点击 resume script execution 则会结束第一次render,自动调用componentDidMount,
-          发送异步请求，dispatch(action)，然后更新redux,从而更新Main组件中的user,并且再次
-          render(),到了debugger这儿再次pause,点击 resume script execution 之后会直接显示
-          对应的页面
+      在这个添加一个debugger,则在第一次渲染界面上就会出现断点，如果我们之前登陆了，然后关闭了该页面(cookies中有userid)，再次打开访问根路径
+      此时cookies中有userid,但是user中没有_id
+      		点击下一步：就会进入return null的步骤
+      		然后再点击 resume script execution 则会结束第一次render,自动调用componentDidMount,发送异步请求，dispatch(action)，然后更新redux,从而更新Main组件中的user,并且再次render(),到了debugger这儿再次pause,点击 resume script execution 之后显示对应的界面
     */
     debugger;
     if (!user._id) {
-      // 如果user没有_id,则返回一个null,不做任何显示
+      // 如果user没有_id,则返回一个null,不做任何显示  3.1
       return null;
     } else {
       /* 如果有_id,则显示对应的界面，比如大神界面，老板界面，个人中心界面等 */
@@ -1334,31 +1839,23 @@ class Main extends React.Component {
       // 获取请求的路径
       let path = this.props.location.pathname;
       // 如果请求的是根路径，就需要根据user的header和type计算得到一个重定向的路径，并且自动重定向
-      if (path === "/") {
+      if (path === "/") {    // 3.2.1
         path = getRedirectTo(user.type, user.header);
         return <Redirect to={path}></Redirect>;
       }
     }
 
-    // -----------------关键代码end---------------------
-
+	// 3.2.2
     return (
-      <div>
-        <Switch>
-          <Route path="/laobaninfo" component={LaobanInfo}></Route>
-          <Route path="/dasheninfo" component={DashenInfo}></Route>
-        </Switch>
-      </div>
+      ...
     );
   }
 }
-
-// -------------- 关键代码start ----------------
-export default connect((state) => ({ user: state.user }), {})(Main);
-// -------------- 关键代码end ----------------
 ```
 
-在后台定义请求响应函数 src/routes/index.js
+### 8.1.2 在后台定义请求响应函数 
+
+在src/routes/index.js
 
 ```
 // 获取用户信息的路由
@@ -1382,6 +1879,8 @@ router.get("/user", function (req, res) {
   });
 });
 ```
+
+### 8.1.3 前台操作
 
 在前台定义发送 ajax 请求的方法 src/index.js:
 
@@ -1547,31 +2046,18 @@ export default NotFound;
 在 main.jsx 中将刚才定义的路由组件引入，在引入之前先分析：
 
     （1）首先可以发现引入laoban/dashen/message/personal组件都需要4个内容：路径，顶部导航栏的文字，中间的路由组件，底部导航栏的图标和底部导航栏的文字。所以先通过一个数组的形式，放置4个元素，每个元素是一个对象，对应放置path,component,title,icon,text
-
+    
     （2）通过map的方式动态化地引入即可
 
 ```
-import React from "react";
-import { Switch, Route, Redirect } from "react-router-dom";
-import { connect } from "react-redux";
-import Cookies from "js-cookie"; //可以操作前端cookie的对象 set()/remove()
-import { NavBar } from "antd-mobile";
-
-import LaobanInfo from "../laoban-info/laoban-info";
-import DashenInfo from "../dashen-info/dashen-info";
-import { getRedirectTo } from "../../utils";
-import { getUser } from "../../redux/actions";
-
-// ------------------关键代码start----------------------
 import Dashen from "../dashen/dashen";
 import Laoban from "../laoban/laoban";
 import Message from "../message/message";
 import Personal from "../personal/personal";
 import NotFound from "../../components/notfound/notfound";
-// ------------------关键代码end----------------------
 
 class Main extends React.Component {
-  // ------------------关键代码start----------------------
+  
   // 给组件对象添加属性，添加static是给组件类添加属性
   navList = [
     {
@@ -1603,65 +2089,17 @@ class Main extends React.Component {
       text: "个人",
     },
   ];
-  // ----------------关键代码end -----------------------
-  componentDidMount() {
-    /* 实现异步过程 */
-    console.log("componentDidMount()执行啦");
+  
+  ...
 
-    // (1) 登陆过，但是关掉了该窗口(cookies中有userid)，
-    // 之后再打开没有再次登录(redux管理的user中没有_id)
-    const userid = Cookies.get("userid");
-    const { _id } = this.props.user;
-    if (userid && !_id) {
-      // 发送异步请求，获取user信息
-      // 需要在后台先写请求响应，然后在前台写发送ajax请求的函数、redux等，最后在可以在这里使用
-      this.props.getUser();
-      // 发送请求后更新了redux中的state，从而使得Main组件接收到的user属性发生了改变，从而重新render()
-      // 根据我们在render()中写的内容，此时就会return null
-    }
-  }
-
-  render() {
-    /* (2) cookies中没有userid,则直接重定向到登录界面 */
-    // 读取cookies中的userid
-    const userid = Cookies.get("userid");
-    if (!userid) {
-      // 如果没有，则自动重定向到登录界面
-      return <Redirect to="/login"></Redirect>;
-    }
-
-    /*
-      (3) cookies中有userid
-      判断redux管理的user中是否有_id(有则说明打开浏览器界面时又登录了一次)
-    */
-    const { user } = this.props;
-    // debugger;
-    if (!user._id) {
-      // 如果user没有_id,则返回一个null,不做任何显示
-      return null;
-    } else {
-      /* 如果有_id,则显示对应的界面，比如大神界面，老板界面，个人中心界面等 */
-
-      // 获取请求的路径
-      let path = this.props.location.pathname;
-      // 如果请求的是根路径，就需要根据user的header和type计算得到一个重定向的路径，并且自动重定向
-      if (path === "/") {
-        path = getRedirectTo(user.type, user.header);
-        return <Redirect to={path}></Redirect>;
-      }
-    }
-
-    // ------------------关键代码start----------------------
     // 判断navList中有没有和当前请求的路径相同的路径，有则显示对应的顶部导航栏，否则不显示
     // 因为除了dashen/laoban/message/personal外，其余组件均具备自己的导航栏
     const { navList } = this;
     const path = this.props.location.pathname; //当前请求的路径
     const currentNav = navList.find((nav) => nav.path === path);
-    // ------------------关键代码end----------------------
 
     return (
       <div>
-      // ------------------关键代码start----------------------
         {currentNav ? <NavBar>{currentNav.title}</NavBar> : null}
         <Switch>
           <Route path="/laobaninfo" component={LaobanInfo}></Route>
@@ -1674,8 +2112,6 @@ class Main extends React.Component {
         </Switch>
         {/* 底部导航栏同样：判断如果该页面已经有了顶部导航栏，则对应的就不需要底部导航栏了 */}
         {currentNav ? <div>底部导航栏</div> : null}
-
-        // ------------------关键代码end----------------------
       </div>
     );
   }
@@ -1739,8 +2175,8 @@ export default withRouter(NavFooter);
 
 ### 8.2.8 解决问题 1：底部导航栏位置错误
 
-底部导航栏并没有位于底部，这可以使用 antd-mobile 中为 Navbar 设置的类实现
-在`assets/index.css`中：
+底部导航栏并没有位于底部，这可以使用 antd-mobile 中为 TabBar设置的类实现
+在`assets/index.css`中：在浏览器中打开开发者工具，可以得到antd-mobile为TabBar组件预先配置好的类名
 
 ```
 /* 这是antd-mobile中定义的，是给NavBar特有的类名 */
@@ -1749,6 +2185,7 @@ export default withRouter(NavFooter);
   position: fixed;
   bottom: 0;
   width: 100%;
+  height: 50px;
 }
 ```
 
@@ -1765,124 +2202,11 @@ export default withRouter(NavFooter);
     主路由组件
 */
 
-import React from "react";
-import { Switch, Route, Redirect } from "react-router-dom";
-import { connect } from "react-redux";
-import Cookies from "js-cookie"; //可以操作前端cookie的对象 set()/remove()
-import { NavBar } from "antd-mobile";
-
-import LaobanInfo from "../laoban-info/laoban-info";
-import DashenInfo from "../dashen-info/dashen-info";
-import { getRedirectTo } from "../../utils";
-import { getUser } from "../../redux/actions";
-import Dashen from "../dashen/dashen";
-import Laoban from "../laoban/laoban";
-import Message from "../message/message";
-import Personal from "../personal/personal";
-import NotFound from "../../components/notfound/notfound";
-import NavFooter from "../../components/nav-footer/nav-footer";
-
 class Main extends React.Component {
-  // 给组件对象添加属性，添加static是给组件类添加属性
-  navList = [
-    {
-      path: "/laoban", // 路由路径
-      component: Laoban, // 显示的路由组件
-      title: "大神列表", // 顶部的导航栏内容
-      icon: "dashen", // 底部显示的图标
-      text: "大神", // 图标下的文字
-    },
-    {
-      path: "/dashen",
-      component: Dashen,
-      title: "老板列表",
-      icon: "laoban",
-      text: "老板",
-    },
-    {
-      path: "/message",
-      component: Message,
-      title: "消息列表",
-      icon: "message",
-      text: "消息",
-    },
-    {
-      path: "/personal",
-      component: Personal,
-      title: "个人中心",
-      icon: "personal",
-      text: "个人",
-    },
-  ];
-  componentDidMount() {
-    /* 实现异步过程 */
-    console.log("componentDidMount()执行啦");
-
-    // (1) 登陆过，但是关掉了该窗口(cookies中有userid)，
-    // 之后再打开没有再次登录(redux管理的user中没有_id)
-    const userid = Cookies.get("userid");
-    const { _id } = this.props.user;
-    if (userid && !_id) {
-      // 发送异步请求，获取user信息
-      // 需要在后台先写请求响应，然后在前台写发送ajax请求的函数、redux等，最后在可以在这里使用
-      this.props.getUser();
-      // 发送请求后更新了redux中的state，从而使得Main组件接收到的user属性发生了改变，从而重新render()
-      // 根据我们在render()中写的内容，此时就会return null
-    }
-  }
-
+  
   render() {
-    /* (2) cookies中没有userid,则直接重定向到登录界面 */
-    // 读取cookies中的userid
-    const userid = Cookies.get("userid");
-    if (!userid) {
-      // 如果没有，则自动重定向到登录界面
-      return <Redirect to="/login"></Redirect>;
-    }
 
-    /*
-      (3) cookies中有userid
-      判断redux管理的user中是否有_id(有则说明打开浏览器界面时又登录了一次)
-    */
-    const { user } = this.props;
-    /*
-      在这个添加一个debugger,则在第一次渲染界面上就会出现断点
-      如果我们之前登陆了，然后关闭了该页面(cookies中有userid)，再次打开访问根路径
-          则会自动根据type和header重导向到laobaninfo/daseninfo/laoban/dashen
-      然后刷新一下界面，则会出现redux没有使用的状态，这是因为还没有dispatch任何的action
-          所以redux还没有使用
-      刷新页面之后，会自动pause，此时cookies中有userid,但是user中没有_id
-      点击下一步：就会进入return null的步骤
-      然后再点击 resume script execution 则会结束第一次render,自动调用componentDidMount,
-          发送异步请求，dispatch(action)，然后更新redux,从而更新Main组件中的user,并且再次
-          render(),到了debugger这儿再次pause,点击 resume script execution 之后会直接显示
-          对应的页面
-
-
-    */
-    // debugger;
-    if (!user._id) {
-      // 如果user没有_id,则返回一个null,不做任何显示
-      return null;
-    } else {
-      /* 如果有_id,则显示对应的界面，比如大神界面，老板界面，个人中心界面等 */
-
-      // 获取请求的路径
-      let path = this.props.location.pathname;
-      // 如果请求的是根路径，就需要根据user的header和type计算得到一个重定向的路径，并且自动重定向
-      if (path === "/") {
-        path = getRedirectTo(user.type, user.header);
-        return <Redirect to={path}></Redirect>;
-      }
-    }
-
-    // 判断navList中有没有和当前请求的路径相同的路径，有则显示对应的导航栏，否则不显示
-    // 因为除了dashen/laoban/message/personal外，其余组件均具备自己的导航栏
-    const { navList } = this;
-    const path = this.props.location.pathname; //当前请求的路径
-    const currentNav = navList.find((nav) => nav.path === path);
-
-   // --------------------关键代码start-------------------
+  	...
     if (currentNav) {
       // 决定哪个路由需要隐藏
       if (user.type === "laoban") {
@@ -1893,24 +2217,9 @@ class Main extends React.Component {
         navList[0].hide = true;
       }
     }
-     // --------------------关键代码end-------------------
-
+    
     return (
-      <div>
-        {currentNav ? <NavBar>{currentNav.title}</NavBar> : null}
-        <Switch>
-          <Route path="/laobaninfo" component={LaobanInfo}></Route>
-          <Route path="/dasheninfo" component={DashenInfo}></Route>
-
-          {navList.map((nav) => (
-            <Route path={nav.path} component={nav.component}></Route>
-          ))}
-          <Route path="./notfound" component={NotFound}></Route>
-        </Switch>
-         // --------------------关键代码start-------------------
-        {currentNav ? <NavFooter navList={navList}></NavFooter> : null}
-         // --------------------关键代码end-------------------
-      </div>
+      ...
     );
   }
 }
@@ -1922,53 +2231,20 @@ export default connect((state) => ({ user: state.user }), { getUser })(Main);
 `nav-footer.jsx`:
 
 ```
-import React from "react";
-import { TabBar } from "antd-mobile";
-import PropTypes from "prop-types";
-import { withRouter } from "react-router-dom";
-
-const Item = TabBar.Item;
 class NavFooter extends React.Component {
-  static propTypes = {
-    navList: PropTypes.array.isRequired,
-  };
 
   render() {
-
-    // ------------------关键代码start---------------
     //   需要显示的导航项
     let { navList } = this.props;
     // 过滤掉hide为true的nav
     navList = navList.filter((nav) => !nav.hide);
-    // ------------------关键代码end---------------
 
-    // 获取当前请求的路径
-    const path = this.props.location.pathname;
+    ...
     return (
-      <div>
-        <TabBar>
-          {navList.map((nav) => (
-            <Item
-              key={nav.path}
-              title={nav.text}
-              icon={{ uri: require(`./images/${nav.icon}.png`) }}
-              selectedIcon={{
-                uri: require(`./images/${nav.icon}-selected.png`),
-              }}
-              selected={path === nav.path}
-              onPress={() => this.props.history.replace(nav.path)}
-            ></Item>
-          ))}
-        </TabBar>
-      </div>
+      ...
     );
   }
 }
-
-// 使用withRouter包装产生的组件可以使用路由组件的API，原来的组件NavFooter属于非路由组件
-// 非路由组件不能访问路由组件的API
-// 被withRouter包装的组件会自动传入history,location,match等路由组件的API
-export default withRouter(NavFooter);
 ```
 
 # 9 个人中心
@@ -2070,11 +2346,9 @@ export default connect((state) => ({ user: state.user }), {})(Personal);
 
     (1) 给按钮添加单击响应函数
     (2) 点击按钮后要做两件事：
-          a 清除浏览器中保存的cookies信息，这个步骤就需要引入js-cookies包，并
-          且使用Cookies.remove('userid')清除
-          b 重置redux中的user状态，将user的信息全部删除，替换为初始化redux中的
-          state对象时的状态,这个步骤需要将action.js中的同步action creator传入
-          Personal组件中
+          2.1 清除浏览器中保存的cookies信息，这个步骤就需要引入js-cookies包，并且使用Cookies.remove('userid')清除
+          2.2 重置redux中的user状态，将user的信息全部删除，替换为初始化redux中的state对象时的状态,这个步骤需要将action.js中的同步action creator传入Personal组件中
+          		mapDispatchToProps 为actions里面的函数绑定dispatch，所以只要将actions里面的函数通过connect传递给了某个组件，直接调用它即可自动dispatch，从而修改redux中的状态值，不需要显示dispatch
 
 ```
 /* 个人中心界面的路由组件 */
@@ -2103,6 +2377,9 @@ class Personal extends React.Component {
           Cookies.remove("userid");
           // 重置redux中的user状态
           this.props.resetUser(); //resetUser会将redux中的user设置为初始的state状态
+          // 这会直接调用reducers，虽然没有dispatch
+          // mapDispatchToProps 为actions里面的函数绑定dispatch,所以不需要显示指定dispatch
+          // 在actions.js中的异步请求中，是由于函数的设定，会将dispatch作为返回的参数
         },
       },
     ]);
@@ -2151,7 +2428,7 @@ export default connect((state) => ({ user: state.user }), { resetUser })(
 
 可以发现两个组件显示的内容差不多，只是获取到的列表不同，抽取一个共同的组件——用户列表组件，只需要改变向用户列表组件传入的列表，从而显示不同的列表信息
 
-所以思路为：首先获取指定类型的用户列表信息
+所以思路为：首先获取指定类型的用户列表信息,分别是laoban类型和dashen类型
 
 ## 10.1 后台：定义获取指定用户列表的路由
 
@@ -2324,6 +2601,25 @@ class UserList extends React.Component {
 export default UserList;
 ```
 
+注意：这里存在一个问题：将UserList的Header组件中的thumb如此设置时，就会出现下面的问题
+
+![问题](./img/34.png)
+
+在验证了多次之后，发现所有的userList中的内容均可以在后台正常得到，并且前台的render也可以完成，只是不能显示，将其修改为下面的内容，可以显示：
+
+```
+<Header
+  thumb={
+    user.header ? (
+      <img src={`../../assets/images/${user.header}.png`}></img>
+    ) : (
+      ""
+    )
+  }
+  extra={user.username}
+/>
+```
+
 ## 10.5 修改 Laoban 组件和 Dashen 组件
 
 做两件事：首先在 componentDidMount 中发起异步请求，其次通过 connect 将 userlist 传递给 Laoban 组件，再将 userlist 传递给子组件 UserList
@@ -2406,7 +2702,7 @@ export default connect((state) => ({ userList: state.userList }), {
 
 ### 10.6.2 解决第二个问题
 
-使得顶部导航栏始终位于顶部，不跟随页面滑动:为其添加一个类，定义其样式为固定定位,在`assets/css/index.less`中：
+使得顶部导航栏始终位于顶部，不跟随页面滑动:为main中的`<Navbar>`添加一个类，定义其样式为固定定位,在`assets/css/index.less`中：
 
 ```
 .sticky-header {
@@ -2438,7 +2734,7 @@ export default connect((state) => ({ userList: state.userList }), {
 <WingBlank style={{ marginBottom: 50, marginTop: 50 }}>
 ```
 
-### 10.3 解决个人中心顶部导航栏和底部导航栏遮挡用户信息的问题
+### 10.6.3 解决个人中心顶部导航栏和底部导航栏遮挡用户信息的问题
 
 问题如下：
 ![21](./img/21.png)
@@ -2455,18 +2751,23 @@ export default connect((state) => ({ userList: state.userList }), {
 
 **注意：前台应用和后台应用均需要使用这个包，所以均需要下载**
 
+如果在node_modules中没有发现socket.io-client这个包，则单端安装一下即可
+
 ## 11.1 socket.io 简介
 
 socket.io 是一个可以实现多人远程实时通信或者聊天的库
-它包装的是 H5 WebSocket 和轮询，如果是较新的浏览器内部使用 Web Socket,如果浏览器不支持，其内部就会使用轮询实现实时通信
+它包装的是 H5 WebSocket 和轮询poiling，如果是较新的浏览器内部使用 Web Socket,如果浏览器不支持，其内部就会使用轮询实现实时通信
 
-    io:服务器端核心的管理对象
-    socket: 客户端与服务器端的连接对象
-
-    emit(name,data):发送消息
-    on(name,function(data){}):绑定关于name事件的监听
-
-    注意：服务器(客户端)发送消息的name和客户端(服务器)接收消息的name要保持一致
+	- 轮询：客户端每隔一段时间就向浏览器发送消息，直到浏览器不忙并且接收到该消息为止
+	-  H5 WebSocket：浏览器与服务器可以相互发送消息
+	
+	io:服务器端核心的管理对象
+	socket: 客户端与服务器端的连接对象
+	
+	emit(name,data):发送消息
+	on(name,function(data){}):绑定关于name事件的监听
+	
+	注意：服务器(客户端)发送消息的name和客户端(服务器)接收消息的name要保持一致
 
 ### 11.2 使用 socket.io 的例子
 
@@ -2520,10 +2821,12 @@ require("../socketIO/test")(server);
 // 引入客户端 io
 import io from "socket.io-client";
 
-// 连接服务器, 得到代表连接的 socket 对象
-const socket = io("ws://localhost:4000");
+// 连接服务器, 得到代表连接的 socket 对象     
+// {transports: ["websocket"] }可以解决CROS跨域的问题，强制连接方式为websocket
+// 默认设置为{ transports: [“poiling","websocket"] }
+const socket = io("ws://localhost:4000", { transports: ["websocket"] });
 
-// 绑定'reciveMsage'的监听, 来接收服务器发送的消息
+// 绑定'reciveMsg'的监听, 来接收服务器发送的消息
 socket.on("receiveMsg", function (data) {
   console.log("浏览器端接收到消息:", data);
 });
@@ -2548,7 +2851,13 @@ import "./test/socketio_test";
 ## 12.1 聊天功能组件：chat.jsx
 
 实现的功能：
-![24](./img/24.png)
+
+![聊天界面](./img/24.png)
+
+可以发现我们需要保存的信息有：
+
+	- 发送方的username,header
+	- from,to,chat_id,content,read,create_time
 
 ### 12.1.1 服务器端：
 
@@ -2574,7 +2883,7 @@ exports.ChatModel = ChatModel;
 
 #### 12.1.1.2 定义后台发送 ajax 请求对应的路由
 
-响应 ajax 请求时，需要返回的数据类型为对象，包含两个属性，code 表示发送请求成功，data 中存放两个属性，users 是当前所有指定类型的用户组成的一个对象，chatMsgs 是与当前用户相关的所有信息组成的列表(当前用户发出的和当前用户接收的)
+响应 ajax 请求时，需要返回的数据类型为对象，包含两个属性，code 表示发送请求成功，data 中存放两个属性，users 是当前所有的用户组成的一个对象，chatMsgs 是与当前用户相关的所有信息组成的列表(当前用户发出的和当前用户接收的)
 
     {
         "code": 0,
@@ -2617,14 +2926,6 @@ exports.ChatModel = ChatModel;
 
 ```
 const ChatModel = require("../db/models").ChatModel;// 查看用户信息的路由
-
-router.get("/userlist", (req, res) => {
-  const { type } = req.query;
-  // 得到所有type类型的用户
-  UserModel.find({ type: type }, filter, function (err, users) {
-    res.send({ code: 0, data: users });
-  });
-});
 
 // 获取当前用户的聊天消息列表
 router.get("/msglist", function (req, res) {
@@ -2713,6 +3014,8 @@ import Chat from "../chat/chat";
 
 编辑 Chat 组件的静态界面：
 
+![](./img/24.png)
+
     设置对方的消息需要显式对方的头像
     我自己的消息不用显示头像
 
@@ -2754,6 +3057,7 @@ export default connect((state) => ({}), {})(Chat);
 ```
 // 设置消息文本居右
 #chat-page .chat-me .am-list-extra {
+  // flex-basis的尺寸是作用在content-box上的,设置为auto表示占据其它元素剩余之外的所有宽度和高度
   flex-basis: auto;
 }
 #chat-page .chat-me .am-list-content {
@@ -2767,29 +3071,60 @@ export default connect((state) => ({}), {})(Chat);
     发送数据前需要收集相关的数据
         from:谁发消息，就是当前登录的用户
         to:发给谁，这可以在当前的match的params中查看
-        content:发消息的内容，使用受控组件的方式从当前输入数据中获取
-    发送消息属于异步操作，需要使用redux
+        content:发消息的内容，使用受控组件的方式将当前输入数据存入state中，并且在state中获取显示在页面中，然后为发送按钮提供事件处理程序
+    	发送消息属于异步操作，需要使用redux
 
 ```
-handleSend = () => {
-  // 收集数据
-  const from = this.props.user._id;
-  const to = this.props.match.params.userid;
-  const content = this.state.content.trim();
-  // 发送请求(发消息)
-  if (content) {
-    // 异步操作
-  }
-  // 清除输入数据
-  this.setState({ content: "" });
-};
+./chat.jsx
+import { sendMsg } from "../../redux/actions";
 
-<InputItem className="am-tab-bar"
-  placeholder="请输入"
-  extra={<span onClick={this.handleSend}>发送</span>}
-  value={this.state.content}
-  onChange={(val) => this.setState({ content: val })}
-></InputItem>
+class Chat extends React.Component {
+  state = {
+    content: "",
+  };
+  handleSend = () => {
+    // 收集数据
+    const from = this.props.user._id;
+    const to = this.props.match.params.userid;
+    const content = this.state.content.trim();
+    // 发送请求(发消息)
+    if (content) {
+      // 异步操作
+      this.props.sendMsg(from, to, content);
+    }
+    // 清除输入数据
+    this.setState({ content: "" });
+  };
+  render() {
+    return (
+      <div id="chat-page">
+        ...
+        <div className="am-tab-bar">
+          <InputItem
+            className="am-tab-bar"
+            placeholder="请输入"
+            extra={<span onClick={this.handleSend}>发送</span>}
+            value={this.state.content}
+            onChange={(val) => this.setState({ content: val })}
+          ></InputItem>
+        </div>
+      </div>
+    );
+  }
+}
+
+export default connect((state) => ({ user: state.user }), { sendMsg })(Chat);
+
+```
+
+./actions.js
+
+```
+export const sendMsg = (from, to, content) => {
+  return (dispatch) => {
+    console.log("发送消息：", from ,to,content);
+  };
+};
 ```
 
 #### 12.1.2.2 实现前后台的收发消息
@@ -2798,9 +3133,9 @@ handleSend = () => {
 
     发送消息使用的是socket.io,所以需要先引入socket.io创建io对象
     连接服务器操作只需要执行一次(要保证内存中只创建了一个socket对象)，将所创建的socket对象保存在io中，创建socket连接对象之前先判断io中是否已经存在socket连接器了，没有再创建
-
+    
     注意：之前在测试socket.io时，在入口文件中引入了import "./test/socketio_test";这个已经不用了，所以将其删掉
-
+    
     另外，此时socket对象是在发消息时才创建的，也就是说只有我发了消息之后，socket连接器对象才会存在，我收到别人发给我的消息时我才会有所反应，这是不对的，后面需要修改
 
 ```
@@ -2809,12 +3144,13 @@ import io from "socket.io-client";
 /*
 单例对象：整个内存中仅有一个socket
    1 创建对象之前：判断对象是否已经创建，只有当不存在时才创建
-   2 创建对象之后：保存socket对象在io对象中
+   2 创建对象之后：保存socket对象在io对象中,这样避免多次创建
 */
 function initIO() {
+  // 1 创建对象之前：判断对象是否已经创建，只有当不存在时才创建
   if (!io.socket) {
     // 连接服务器,得到与服务器的连接对象 ws是协议，类似于http
-    io.socket = io("ws://localhost:4000");
+    io.socket = io("ws://localhost:4000", { transports: ["websocket"] });
 
     // 接收来自服务器端的消息
     io.socket.on("receiveMsg", function (data) {
@@ -2886,7 +3222,7 @@ module.exports = function (server) {
 ## 12.2 实现用户间收发消息实时显示
 
 实现的功能：
-![25](./img/25.png)
+![25](./img/24.png)
 
 ### 12.2.1 获取当前用户的聊天消息列表
 
@@ -2902,9 +3238,6 @@ module.exports = function (server) {
 ```
 // 获取当前用户的聊天消息列表
 export const reqChatMsgList = () => ajax("/msglist");
-
-// 修改指定消息为已读
-export const reqReadMsg = (from) => ajax("/readMsg", { from }, "POST");
 ```
 
 #### 12.2.1.2 Redux 部分
@@ -2929,9 +3262,9 @@ const initChat = {
 };
 function chat(state = initChat, action) {
   switch (action.type) {
-    case RECEIVE_Msg_LIST:
+    case RECEIVE_MSG_LIST:
       return;
-    case RECEIVE_Msg:
+    case RECEIVE_MSG:
       return;
     default:
       return state;
@@ -3258,14 +3591,14 @@ function chat(state = initChat, action) {
 <InputItem
   placeholder="请输入"
   extra={
-    //----关键代码------------
     <span>
+     //----关键代码------------
       <span onClick={this.toggleShow} style={{ marginRight: 5 }}>
         😃
       </span>
-      <span onClick={this.handleSend}>发送</span>
+       //----关键代码------------
+      <span onClick={this.handleSend} style={{ marginRight: 5 }}>>发送</span>
     </span>
-    //----关键代码------------
   }
   value={this.state.content}
   onChange={(val) => this.setState({ content: val })}
@@ -3314,6 +3647,19 @@ toggleShow = () => {
 
 此时运行程序，发现在点击了表情图标后，出现了问题，表情图标不能全部显示：
 ![31](./img/31.png)
+
+首先需要将底部导航栏的高度指定为inherint,即跟随内容的高度变化,否则由于之前设定了底部导航栏高度为50px，并且始终贴在底部，则导致表情框无法展示在页面中
+
+```
+.am-tab-bar {
+  /* 使得导航栏始终在底部 */
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  height: inherit;
+}
+```
+
 这是 anti-mobile 自身设计的问题，需要修改 toggleShow,如下：
 
 ```
@@ -3330,7 +3676,7 @@ toggleShow = () => {
 };
 ```
 
-然后还会发现一个滑动消息列表时，顶部导航栏也会被滑动上去，所以我们要为其添加一个之前定义好的类：sticky-header
+然后还会发现滑动消息列表时，顶部导航栏也会被滑动上去，所以我们要为其添加一个之前定义好的类：sticky-header
 
 ```
 <NavBar
@@ -3374,7 +3720,25 @@ componentDidUpdate() {
 }
 ```
 
+另外，发现当表情框展开时，会遮挡住一部分的信息，此时需要根据isShow动态调整List的下外边距：
+
+```
+当表情框展开时，增大List的下外边距，这个值通过在html中查看展开后的底部导航栏+表情框的高度决定
+当表情框折叠时，下外边距就是底部导航栏的高度
+<List
+  style={
+    isShow
+      ? { marginTop: 50, marginBottom: 240 }
+      : { marginTop: 50, marginBottom: 50 }
+  }
+>
+```
+
+这样做之后还是存在一个问题：当发送了表情消息后，表情框不会折叠，需要再次点击表情才可以实现折叠，这个问题暂时遗留
+
 ## 12.3 显示分组消息列表 message.jsx
+
+![](./img/25.png)
 
 ### 12.3.1 完成静态组件
 
@@ -3410,7 +3774,7 @@ class Message extends React.Component {
   }
 }
 export default connect(
-  (state) => ({ }),
+  (state) => ({user:state.user,chat:state.chat }),
   {}
 )(Message);
 ```
@@ -3420,6 +3784,7 @@ export default connect(
     首先我们需要获取到当前用户与其他用户聊天的最后一条消息，因为在当前页面我们只需要显示最后一条消息即可，所有的消息显示是在chat.jsx中处理的
         定义getLastMsg函数
     获取到当前用户与其他用户聊天的最后一条消息列表后，通过map的形式显示即可
+    	首先，当前用户与某一位用户的所有聊天内容的chat_id都是相同的,即为from_to或者to_from，所以可以根据chat_id对当前用户的所有聊天信息进行分组，找到每一组中发送时间create_time最大的那条消息，因为create_time是按照时间戳的方式产生的，所以越晚建立的消息的时间戳越大
 
 ```
 /* 消息列表界面的路由组件 */
@@ -3436,7 +3801,7 @@ function getLastMsgs(chatMsgs) {
   chatMsgs.forEach((msg) => {
     // 得到msg的聊天id  谁给谁发的消息  fromid_toid
     const chatId = msg.chat_id;
-    // 获取已保存的当前组件的lastMsg
+    // 获取已保存的当前组的lastMsg
     const lastMsg = lastMsgObjs[chatId];
     if (!lastMsg) {
       // 没有则说明当前msg就是所在组的lastMsg
@@ -3505,7 +3870,7 @@ export default connect(
 ## 12.3 未读消息数量显示
 
 实现的功能：两个地方
-![29](./img/29.png)
+![29](./img/26.png)
 
 ### 12.3.1 每一个分组的未读数量显示
 
@@ -3597,7 +3962,7 @@ reduce 用法：`arr.reduce(callback,[initialValue])`
         2、currentValue （数组中当前被处理的元素）
         3、index （当前元素在数组中的索引）
         4、array （调用 reduce 的数组）
-
+    
     initialValue （作为第一次调用 callback 的第一个参数。）
 
 需要注意的是：接收同步消息列表的 action 中返回的 data 中在之前的定义中不包含 userid,所以还需要修改接收同步消息列表的 action 以及它的异步调用
@@ -3661,7 +4026,7 @@ function initIO(userid, dispatch) {
 }
 ```
 
-显示未读消息总数量：在`src/components/nav-footer/images/nav-footer.jsx`中,因为它是一个 UI 组件，所以不能通过 connect 传递属性，所以只能通过父组件传递给子组件的方式，所以我们先假定它从父组件接收到了一个 unReadCount 属性，然后可以通过判断当前的路径确定打开了消息列表，从而显示未读消息总数，如果当前路径不是'/message'，则不显示
+显示未读消息总数量：在`src/components/nav-footer/nav-footer.jsx`中,因为它是一个 UI 组件，所以不能通过 connect 传递属性，所以只能通过父组件传递给子组件的方式，所以我们先假定它从父组件接收到了一个 unReadCount 属性，然后可以通过判断当前的路径确定打开了消息列表，从而显示未读消息总数，如果当前路径不是'/message'，则不显示
 
 ```
 static propTypes = {
@@ -3837,6 +4202,10 @@ function chat(state = initChat, action) {
 
 先安装一个包：`npm install --save rc-queue-anim`
 这个包是 antd-mobile 相关的，使用 Ant Motion 能够快速在 React 框架中使用动画。我们需要使用其中的进出场动画
+
+在`https://mobile.ant.design/index-cn`页面的最底部：
+
+![](./img/38.png)
 
 ```
 // 引入包
