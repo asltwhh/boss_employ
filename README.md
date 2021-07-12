@@ -106,6 +106,10 @@
 
 - (4) 后端：使用 Node+express+mongodb+socketIO 等技术
 
+  - nodejs 是一个平台 ，一个基于Chrome javascript  运行时建立的平台，它是对chrome V8引擎进行了封装的运行环境，简单说nodejs就是把浏览器的解释器封装起来作为服务器运行平台，用类似javascript的结构语法进行编程
+  - MongoDB 是由C++语言编写的，是一个基于分布式文件存储的开源数据库系统。MongoDB 将数据存储为一个文档，数据结构由键值(key=>value)对组成。MongoDB 文档类似于 JSON 对象。字段值可以包含其他文档，数组及文档数组。
+  - SocketIO将WebSocket、AJAX和其它的通信方式全部封装成了统一的通信接口，也就是说，我们在使用SocketIO时，不用担心兼容问题，底层会自动选用最佳的通信方式。因此说，WebSocket是SocketIO的一个子集。
+
 - (5) 采用模块化、组件化、工程化的模式开发
 
   ![技术选型](./img/32.png)
@@ -196,6 +200,18 @@
   </script>
 ```
 
+#### 1.4.2 antd-mobile 按需加载
+
+creat-react-app 初始化项目后，我们对项目的启动是通过 react-scripts 实现的。
+
+1. 说到 webpack 配置，很多人都知道在项目根目录下创建 webpck-config.js 文件，然后在该文件中配置参数即可。但是由于create-react-app脚手架工具已经对webpack做了一层封装，所以不太好去配置.babelrc文件。
+   1. 使用比较极端的方法是可以使用 npm run eject 命令将 webpack.config.js 暴露出来。然后在该配置文件中进行修改。但其一，该命令是不可逆的。也就是一旦执行了此命令。webpack.config.js 文件就永久的暴露出来。其二，如果只是修改一个很小的配置项。
+   2. 是否可以不执行 npm run eject 也能够配置 webpack 昵。这就是 customize-cra 的作用。
+   3. cra:Create-React-App,customize-cra就是定制CRA，即修改使用create-react-app脚手架创建的react应用的webpack配置
+   4. 而react-app-rewired就是修改项目的启动过程，加载 webpck-config.js 中的配置，从而实现antd样式的引入和按需加载，如果不修改启动方式，则不会执行添加的webpack配置
+
+3. [babel-plugin-import](https://github.com/ant-design/babel-plugin-import) 是一个用于按需加载组件代码和样式的 babel 插件，引入 antd 样式文件，需要下载 `babel-plugin-import`
+
 - 其次需要下载一些依赖包：`babel-plugin-import react-app-rewired customize-cra`
 
 ```
@@ -222,8 +238,6 @@ module.exports = function override(config, env) {
 };
 ```
 
-#### 1.4.2 antd-mobile 按需加载
-
 - 这里使用 customize-cra 对 webpack 配置进行覆盖，避免将 webpack 直接暴露出来。修改 config-overrides.js 文件：
 
 ```
@@ -243,6 +257,8 @@ module.exports = function override(config, env) {
 
 #### 1.4.3 antd-mobile 定制主题颜色
 
+antd-mobile 的样式使用了 [Less](http://lesscss.org/) 作为开发语言，并定义了一系列全局/组件的样式变量，你可以根据需求进行相应调整。
+
 - 下载相关的依赖包,注意：less-loader 需要制定版本号，否则会报错
 
 ```
@@ -250,12 +266,14 @@ npm install --save-dev less style-loader css-loader
 npm install --save-dev less-loader@5.0.0
 ```
 
-- 修改 config-overrides.js 文件实现主题颜色的更改：使用 addLessLoader 插入 less-loader，`修改style为true`，确保加载 less 文件。根据 modifyVars 项自由定制主题，一般由外部导入主题包赋值给 modifyVars
+- 修改 config-overrides.js 文件实现less样式的按需加载：使用 addLessLoader 插入 less-loader，`修改style为true`，确保加载 less 文件。
+- 修改 config-overrides.js 文件实现主题颜色的更改：根据 modifyVars 项自由定制主题，一般由外部导入主题包赋值给 modifyVars
 
 ```
 const { override, fixBabelImports, addLessLoader } = require('customize-cra');
 
 module.exports = override(
+    // 修改主题颜色
     addLessLoader({
       javascriptEnabled: true,
       modifyVars: {
@@ -264,6 +282,7 @@ module.exports = override(
         "@color-text-base-inverse": "#3f51b5"  // 字体的颜色
       },
     }),
+    // less按需加载
     fixBabelImports('import', {
       libraryName: 'antd-mobile',
       libraryDirectory: 'es',
@@ -277,7 +296,7 @@ module.exports = override(
 
 ## 2.1 创建根组件，3 个一级路由组件
 
-先创建 register,login,main 组件
+在入口文件中，先创建 register,login,main 组件，main组件的路径默认是/
 
 	- main组件是整个应用的主页面
 	- register是注册界面
@@ -325,8 +344,7 @@ ReactDOM.render(
   - redux 负责管理组件状态，主要就是创建 store 对象
   - react-redux 负责减小耦合，提供了 Provider 组件和 connect 连接器
   - redux-thunk 在 redux 中实现异步任务
-  - redux-devtools-extension 是 redux 调试工具
-  - 还需要在浏览器中添加`redux-devtools`插件
+  - redux-devtools-extension 是 redux 调试工具，添加该模块后，结合浏览器提供的redux-devtools插件就可以实现state的实时监听了
 
 ```
 // 注意：redux不能下载最新版本
@@ -1260,7 +1278,7 @@ class Register extends React.Component {
 }
 ```
 
-
+同理在登录界面也需要添加上述信息。
 
 # 7 完成用户的信息完善界面
 
@@ -1303,7 +1321,7 @@ export default class Main extends Component {
 
 在`src/components/header-selector/header-selector.jsx`中：
 
-这一块主要需要了解antd-mobile中Grid标签的使用方法及在代码内容引入资源的require用法
+这一块主要需要了解antd-mobile中Grid标签的使用方法及在代码内容引入资源的require用法,注意，使用require()直接引入的是一个js模块，需要将其默认暴露的数据拿到，即`require(url).default`
 
 ```
 import React from "react";
@@ -1319,7 +1337,7 @@ export default class HeaderSelector extends React.Component {
       this.headerList.push({
         text: "头像" + (i + 1),
         // 不能使用import,并且用的不是单引号，模板字符串用的是``
-        icon: require(`./images/头像${i + 1}.png`),
+        icon: require(`./images/头像${i + 1}.png`).default,
       });
     }
   }
@@ -1344,6 +1362,10 @@ export default class HeaderSelector extends React.Component {
 ![显示结果](./img/35.png)
 
 ![问题](./img/36.png)
+
+找到了问题: 因为require直接引入得到的是一个js模块，我们需要取出模块中存放的地址值，就需要使用`require().default`
+
+![](./img/39.png)
 
 ### 7.1.2 老板信息完善页面的静态实现
 
@@ -1748,6 +1770,10 @@ export default connect((state) => ({ user: state.user }), { updateUser })(
 
 存在一种特殊情况：在注册或者登陆完成之后跳转到信息完善界面，如果此时cookies的信息被恶意删除或者破坏，则在输入了完善信息后点击保存按钮时需要将页面重新转入登陆界面，请用户重新登陆，这个功能需要在main.jsx中实现：
 
+因为在LaobanInfo和DashenInfo组件中点击提交的时候修改了state中的数据，从而由于Main组件需要渲染对应的数据，就会重新加载，无论信息完善成功与否都会重新渲染Main组件。
+
+如果更新信息成功，则会将id传给state中，如果失败，则只更新msg数据，从而可以根据id判断是否成功
+
 ```
 import { Switch, Route, Redirect } from "react-router-dom";
 import { connect } from "react-redux";
@@ -1827,7 +1853,8 @@ class Main extends React.Component {
       在这个添加一个debugger,则在第一次渲染界面上就会出现断点，如果我们之前登陆了，然后关闭了该页面(cookies中有userid)，再次打开访问根路径
       此时cookies中有userid,但是user中没有_id
       		点击下一步：就会进入return null的步骤
-      		然后再点击 resume script execution 则会结束第一次render,自动调用componentDidMount,发送异步请求，dispatch(action)，然后更新redux,从而更新Main组件中的user,并且再次render(),到了debugger这儿再次pause,点击 resume script execution 之后显示对应的界面
+      		然后再点击 resume script execution 则会结束第一次render,自动调用componentDidMount,发送异步请求，dispatch(action)，然后更新redux,从而更新Main组件中的user,并且再次render(),到了debugger这儿再次pause,点击 resume script execution 之后
+      		此时cookie中有id，并且state中也有id，则说明此时注册或者登陆成功，但是由于访问的是根路径，所以计算得到目标路径，
     */
     debugger;
     if (!user._id) {
@@ -2153,9 +2180,9 @@ class NavFooter extends React.Component {
             <Item
               key={nav.path}
               title={nav.text}
-              icon={{ uri: require(`./images/${nav.icon}.png`) }}
+              icon={{ uri: require(`./images/${nav.icon}.png`).default }}
               selectedIcon={{
-                uri: require(`./images/${nav.icon}-selected.png`),
+                uri: require(`./images/${nav.icon}-selected.png`).default,
               }}
               selected={path === nav.path}
               onPress={() => this.props.history.replace(nav.path)}
@@ -2267,7 +2294,7 @@ class Personal extends React.Component {
     return (
       <div>
         <Result
-          img={<img src={require(`../../assets/images/头像1.png`)} />}
+          img={<img src={require(`../../assets/images/头像1.png`).default} />}
           title="张三"
           message="IBM"
         />
@@ -2317,7 +2344,7 @@ class Personal extends React.Component {
       <div>
         {/* Result中规定的内容有就会显示，没有就不会显示 */}
         <Result
-          img={<img src={require(`../../assets/images/${header}.png`)} />}
+          img={<img src={require(`../../assets/images/${header}.png`).default} />}
           title={username}
           message={company}
         />
@@ -2393,7 +2420,7 @@ class Personal extends React.Component {
           img={
             <img
               alt={header}
-              src={require(`../../assets/images/${header}.png`)}
+              src={require(`../../assets/images/${header}.png`).default}
             />
           }
           title={username}
@@ -2532,7 +2559,7 @@ class UserList extends React.Component {
             <WhiteSpace />
             <Card>
               <Header
-                thumb={require(`../../assets/images/头像1.png`)}
+                thumb={require(`../../assets/images/头像1.png`).default}
                 extra="aa"
               />
               <Body>
@@ -2579,7 +2606,7 @@ class UserList extends React.Component {
               <Header
                 thumb={
                   user.header
-                    ? require(`../../assets/images/${user.header}.png`)
+                    ? require(`../../assets/images/${user.header}.png`).default
                     : null
                 }
                 extra={user.username}
@@ -3032,8 +3059,8 @@ class Chat extends React.Component {
       <div id="chat-page">
         <NavBar>aa</NavBar>
         <List>
-          <Item thumb={require(`../../assets/images/头像1.png`)}>你好</Item>
-          <Item thumb={require(`../../assets/images/头像1.png`)}>你好 2</Item>
+          <Item thumb={require(`../../assets/images/头像1.png`).default}>你好</Item>
+          <Item thumb={require(`../../assets/images/头像1.png`).default}>你好 2</Item>
           <Item extra="我" className="chat-me">
             很好
           </Item>
@@ -3455,7 +3482,7 @@ class Chat extends React.Component {
     // 有一个问题，对方可能还没有完善信息，并不具备icon
     // 这里直接在外部获取到指定用户的头像即可，如果在map函数中就需要执行多次，但是用户是固定的，所以没必要require多次
     const targetIcon = targetHeader
-      ? require(`../../assets/images/${targetHeader}.png`)
+      ? require(`../../assets/images/${targetHeader}.png`).default
       : null;
     // ------------------关键代码-------------------
 
@@ -3845,7 +3872,7 @@ class Message extends React.Component {
                 extra={<Badge text={3} />} // 未读消息数量
                 thumb={
                   targetUser.header
-                    ? require(`../../assets/images/${targetUser.header}.png`)
+                    ? require(`../../assets/images/${targetUser.header}.png`).default
                     : null
                 } // 头像
                 arrow="horizontal"
@@ -4243,3 +4270,168 @@ import QueueAnim from 'rc-queue-anim'
   </QueueAnim>
 </List>
 ```
+
+# H5websocket的使用
+
+### 1. 客户端：
+
+1. 建立websocket对象
+
+2. 代码段：
+
+   ```
+   <script>
+   	const websocket = new Websocket('ws:http://localhost:3000');
+   	websocket.addEventListener("open",function(){
+   		console.log('连接服务器成功!');
+   	})
+   	// 点击按钮给服务器发送消息
+   	button.addEventListener("click",function(){
+   		const val = input.value;
+   		websocket.send(val);
+   	})
+   </script>
+   ```
+
+### 2. 服务器端：
+
+`nodejs` 可以通过`nodejs-websocket`来实现创建一个 websocket 的服务
+
+1. 安装：npm install nodejs-websocket
+
+2. 代码段：https://www.jianshu.com/p/f0baf93a3795
+
+   ```
+   // websocket.js
+   const ws = require('nodejs-websocket')
+   
+   const createServer = () => {
+     // 创建一个 server 对象
+     let server = ws.createServer(connection => {
+     	// 每一个用户连接进入的时候，都会创建一个connection对象，表示当前连接进入的用户
+       connection.on('text', function(result) {
+         console.log('发送消息', result)
+       })
+       connection.on('connect', function(code) {
+         console.log('开启连接', code)
+       })
+       connection.on('close', function(code) {
+         console.log('关闭连接', code)
+       })
+       connection.on('error', function(code) {
+         console.log('异常关闭', code)
+       })
+     })
+     return server
+   }
+   
+   // 服务端广播
+   function broadcast(server, msg) {
+     // server.connections得到当前连接入服务器的所有用户
+     server.connections.forEach(function(conn) {
+       conn.sendText(msg)
+     })
+   }
+   
+   module.exports = createServer();
+   ```
+
+**注意：websocket-nodejs不允许后台向前台发送除字符串或者buffer之外的数据，所以一旦需要传送一个对象，需要使用`JSON.stringify`将对象转换为一个json字符串**
+
+### 3 使用websocket的弊端
+
+1. 事件很少，广播事件还要自己写，比较麻烦
+2. 兼容性，不支持websocket的浏览器无法实现该功能
+
+# Socket.IO
+
+[即时通讯框架SocketIO的入门学习 (baidu.com)](https://baijiahao.baidu.com/s?id=1687288407113009630&wfr=spider&for=pc)
+
+Socket.IO是一个库，基于 Node.js 的实时应用程序框架。可以在浏览器和服务器之间实现实时，双向和基于事件的通信。它适用于每个平台、浏览器或设备，同样注重可靠性和速度。它包含两个库：socket.io和socket.io-client,分别用于创建服务器端的连接对象和客户端的连接对象
+
+![](./img/01.jpeg)
+
+SocketIO将WebSocket、AJAX和其它的通信方式全部封装成了统一的通信接口，也就是说，我们在使用SocketIO时，不用担心兼容问题，底层会自动选用最佳的通信方式。
+
+**特点：**
+
+1. 易用性：Socket.io封装了服务端和客户端，使用起来非常简单方便。
+2. 跨平台：Socket.io是跨平台的，可以实现多平台的即时通讯，Socket.io支持跨平台，这就意味着你有了更多的选择，可以在自己喜欢的平台下开发实时应用。
+3. 自适应：Socket.io 实现了实时双向的基于事件的通讯机制，是基于 webSocket 的封装，但它不仅仅包括 webSocket，还对轮询（Polling）机制以及其它的实时通信方式封装成了通用的接口，并且在服务端实现了这些实时机制的相应代码，它会自动根据浏览器从WebSocket、AJAX长轮询、Iframe流等等各种方式中选择最佳的方式来实现网络实时应用，非常方便和人性化，而且支持的浏览器最低达IE5.5。
+4. 直接使用io对象发送消息(io.emit())相当于广播，所有连接到该服务器的用户都会收到该消息；使用io对象创建的socket对象发消息(socket.emit())，则只有该socket对应的用户会收到消息
+
+### 1 服务器不借助第三方平台搭建
+
+客户端：
+
+1. 安装：`npm install socket.io`
+
+2. 代码：
+
+   <script src='/socket.io/socket.io.js'></script>
+   <!-- 它会直接去socket.io包中顺着上面的目录去找到客户端的socket.io.js -->
+
+   <script>
+   	const socket = io('http://localhost:3000');
+       // 接收服务器的sendMsg事件返回的数据
+   	socket.on("sendMag",function(data){
+   		console.log('连接服务器成功!');
+           // 客户端给服务器端发送数据
+           socket.emit("receiveMsg",'客户端发送数据给服务器');
+   	})
+   </script>
+
+服务器端:
+
+1. 安装：`npm install socket.io`
+
+```
+const server = require('http').createServer();
+
+server.on('request',function(req,res){
+	res.end('啦啦啦啦');
+})
+
+const options = { /* ... */ };
+const io = require('socket.io')(server, options);
+io.on('connection', socket => { 
+	console.log('新用户连接了!');
+	socket.on("recieveMsg",data=>{
+		console.log('服务器接收到来自客户端的消息:',data)
+		
+		// 服务器给用户发送信息
+		socket.emit("sendMsg",'服务器给用户发送信息');
+	});
+});
+
+server.listen(3000);
+```
+
+### 2 服务器借助express搭建
+
+服务器端：
+
+```
+const app = require('express')();
+const server = require('http').createServer(app);
+const options = { /* ... */ };
+const io = require('socket.io')(server, options);
+
+app.get('/',function(req,res){
+	res.send('哈哈');
+})
+
+const options = { /* ... */ };
+io.on('connection', socket => { 
+	console.log('新用户连接了!');
+	socket.on("recieveMsg",data=>{
+		console.log('服务器接收到来自客户端的消息:',data)
+		
+		// 服务器给用户发送信息
+		socket.emit("sendMsg",'服务器给用户发送信息');
+	});
+});
+
+server.listen(3000);
+```
+
